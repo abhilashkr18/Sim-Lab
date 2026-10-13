@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sim Lab</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <b>Sim Lab</b>
+    <select id="lang">
+      <option value="python">Python</option>
+      <option value="javascript">JavaScript</option>
+      <option value="html">HTML</option>
+      <option value="cpp">C++</option>
+      <option value="c">C</option>
+      <option value="java">Java</option>
+    </select>
+    <button id="run">▶ Run</button>
+  </header>
+
+  <main>
+    <section id="editor"></section>
+    <section id="side">
+      <div class="panel">
+        <h3>Input</h3>
+        <textarea id="input" placeholder="stdin / JSON / parameters yaha daalo"></textarea>
+      </div>
+      <div class="panel">
+        <h3>Output</h3>
+        <pre id="output"></pre>
+        <iframe id="preview" hidden></iframe>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
