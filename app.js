@@ -1,7 +1,7 @@
 /* =========================================================
-   SIM LAB - app.js
+   SIM LAB - app.js  (FINAL, multi-file project support included)
    Depends on: index.html (IDs), style.css, examples.js,
-   Monaco loader, Pyodide, Plotly (CDN, index.html me)
+   examples3d.js, project.js, Monaco loader, Pyodide, Plotly
    ========================================================= */
 (() => {
 'use strict';
@@ -39,7 +39,7 @@ let abortCtl = null;
 let pyodide = null;
 let mplReady = false;
 let hasPlot = false;
-const files = {};            // name -> { bytes, text, size }
+const files = {};            // Files tab uploads: name -> { bytes, text, size }
 
 /* =========================================================
    UTILITIES
@@ -164,7 +164,7 @@ function getData() {
 }
 
 /* =========================================================
-   FILES TAB
+   FILES TAB (data uploads)
    ========================================================= */
 async function addFiles(list) {
   for (const f of list) {
@@ -284,6 +284,23 @@ async function runPython(c) {
   try { FS.readdir('/data').forEach(f => { if (f !== '.' && f !== '..') FS.unlink('/data/' + f); }); } catch {}
   Object.entries(files).forEach(([n, f]) => FS.writeFile('/data/' + n, f.bytes));
 
+  /* multi-file project: sab files /project me likho, import chale */
+  if (c.project) {
+    pyodide.runPython("import os, shutil\nos.chdir('/')\nshutil.rmtree('/project', ignore_errors=True)\nos.makedirs('/project')");
+    Object.entries(c.project).forEach(([n, t]) => {
+      if (n.includes('/')) FS.mkdirTree('/project/' + n.slice(0, n.lastIndexOf('/')));
+      FS.writeFile('/project/' + n, t);
+    });
+    pyodide.runPython(
+      "import sys, os, importlib\n" +
+      "if '/project' not in sys.path: sys.path.insert(0, '/project')\n" +
+      "for k, m in list(sys.modules.items()):\n" +
+      "    f = getattr(m, '__file__', None)\n" +
+      "    if f and f.startswith('/project/'): del sys.modules[k]\n" +
+      "importlib.invalidate_caches()\n" +
+      "os.chdir('/project')");
+  }
+
   const lines = c.stdin.split('\n');
   if (lines.length && lines[lines.length - 1] === '') lines.pop();
   let i = 0;
@@ -291,8 +308,10 @@ async function runPython(c) {
   pyodide.setStdout({ batched: s => out(s + '\n') });
   pyodide.setStderr({ batched: s => out(s + '\n', 'err') });
 
-  await pyodide.loadPackagesFromImports(c.code);
-  if (/matplotlib/.test(c.code) && !mplReady) { pyodide.runPython(PY_MPL); mplReady = true; }
+  const srcs = [c.code];
+  if (c.project) Object.entries(c.project).forEach(([n, t]) => { if (n.endsWith('.py')) srcs.push(t); });
+  for (const s of srcs) await pyodide.loadPackagesFromImports(s);
+  if (srcs.some(s => /matplotlib/.test(s)) && !mplReady) { pyodide.runPython(PY_MPL); mplReady = true; }
 
   const ns = pyodide.globals.get('dict')();
   ns.set('__name__', '__main__');
@@ -310,7 +329,7 @@ async function runPython(c) {
 }
 
 /* =========================================================
-   RUNNER: JAVASCRIPT
+   RUNNER: JAVASCRIPT (require() support)
    ========================================================= */
 async function runJS(c) {
   const mk = cls => (...a) => out(a.map(fmtArg).join(' ') + '\n', cls);
@@ -323,14 +342,30 @@ async function runJS(c) {
   Object.entries(files).forEach(([n, f]) => { FILES[n] = f.text; });
 
   const AsyncFn = Object.getPrototypeOf(async function () {}).constructor;
-  const fn = new AsyncFn('console', 'INPUT', 'PARAMS', 'DATA', 'FILES', 'PLOT', 'Plotly', c.code);
-  await fn(con, c.stdin, c.params, c.data, FILES, $('plotly-div'), P);
+  const proj = c.project || {};
+  const cache = {};
+  const REQUIRE = name => {
+    const n = String(name).replace(/^\.\//, '').replace(/^\//, '');
+    const key = [n, n + '.js', n + '/index.js'].find(k => k in proj);
+    if (!key) throw new Error("Cannot find module '" + name + "'");
+    if (cache[key]) return cache[key].exports;
+    const mod = { exports: {} };
+    cache[key] = mod;
+    new Function('require', 'module', 'exports', 'console', 'INPUT', 'PARAMS', 'DATA', 'FILES', 'PLOT', 'Plotly', proj[key])
+      (REQUIRE, mod, mod.exports, con, c.stdin, c.params, c.data, FILES, $('plotly-div'), P);
+    return mod.exports;
+  };
+  const fn = new AsyncFn('console', 'INPUT', 'PARAMS', 'DATA', 'FILES', 'PLOT', 'Plotly', 'require', 'module', 'exports', c.code);
+  const self = { exports: {} };
+  await fn(con, c.stdin, c.params, c.data, FILES, $('plotly-div'), P, REQUIRE, self, self.exports);
 }
 
 /* =========================================================
-   RUNNER: HTML (sandboxed iframe)
+   RUNNER: HTML (sandboxed iframe, CSS/JS files inline)
    ========================================================= */
 function runHTML(c) {
+  if (c.project) c.code = window.SimLabProject.inlineHtml(c.code, c.project);
+
   const J = v => JSON.stringify(v).replace(/</g, '\\u003c');
   const FILES = {};
   Object.entries(files).forEach(([n, f]) => { FILES[n] = f.text; });
@@ -368,6 +403,11 @@ window.addEventListener('message', e => {
    ========================================================= */
 async function runJudge(c) {
   const s = settings;
+  if (c.project) {
+    const PJ = window.SimLabProject;
+    if (c.lang === 'c' || c.lang === 'cpp') c.code = PJ.inlineIncludes(c.code, c.project, c.lang, c.entry);
+    else if (c.lang === 'java') c.code = PJ.inlineJava(c.code, c.project, c.entry);
+  }
   if (!s.url) throw fail('Settings (⚙) me Judge0 API URL daalo.');
   const base = s.url.replace(/\/+$/, '');
   const headers = {};
@@ -423,7 +463,8 @@ async function runJudge(c) {
    ========================================================= */
 async function run() {
   if (running || !editor) return;
-  const lang = $('lang').value;
+  const tgt = window.SimLabProject ? window.SimLabProject.target() : null;
+  const lang = tgt ? tgt.lang : $('lang').value;
 
   const data = getData();
   if (data === undefined) { showTab('input', 'json'); setStatus('JSON galat hai (JSON tab dekho)', 'error'); return; }
@@ -437,7 +478,8 @@ async function run() {
   setStatus('Running...', 'busy');
   const t0 = performance.now();
 
-  const ctx = { lang, code: editor.getValue(), stdin: $('input').value, params: getParams(), data };
+  const ctx = { lang, code: tgt ? tgt.code : editor.getValue(), stdin: $('input').value, params: getParams(), data,
+                project: tgt ? tgt.files : null, entry: tgt ? tgt.name : '' };
   const runner = { python: runPython, javascript: runJS, html: runHTML }[lang] || runJudge;
 
   try {
@@ -517,6 +559,7 @@ function persist() {
 
 /* =========================================================
    SAVE / OPEN / SHARE / THEME
+   (project.js ye handlers multi-file ke liye override karta hai)
    ========================================================= */
 function saveFile() {
   const lang = $('lang').value;
@@ -743,6 +786,10 @@ require(['vs/editor/editor.main'], () => {
   initFiles();
   initSplitters();
   setStatus('Ready');
+
+  /* project.js ke liye expose karo */
+  window.SimLab = { editor, fillExamples, loadExample, setStatus, renderParams, paramPairs, validateJson };
+  window.dispatchEvent(new Event('simlab-ready'));
 });
 
 })();
