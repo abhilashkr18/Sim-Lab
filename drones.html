@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Drone Lab - 3D Drone Encyclopedia</title>
+<style>
+:root{--bg:#0b1020;--panel:#121a33;--card:#1a2444;--line:#2a3763;--tx:#e8edff;--dim:#9aa7d6;--acc:#38bdf8}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:14px;overflow:hidden}
+#app{display:grid;grid-template-columns:390px 1fr;height:100vh;height:100dvh}
+#side{overflow-y:auto;background:var(--panel);border-right:1px solid var(--line);padding:12px;display:flex;flex-direction:column;gap:12px}
+#stage{position:relative;min-width:0;min-height:0}
+#stage canvas{display:block;width:100%;height:100%;touch-action:none}
+h1{margin:0;font-size:18px}
+h1 small{display:block;font-weight:400;color:var(--dim);font-size:12px;margin-top:2px}
+.sec{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.sec h3{margin:0 0 8px;font-size:13px;letter-spacing:.3px;color:var(--dim);text-transform:uppercase}
+#cards{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dc{border:2px solid transparent;border-radius:10px;padding:8px;background:#0f1730;cursor:pointer;text-align:left;color:var(--tx);font:inherit}
+.dc b{display:block;font-size:13px}.dc span{font-size:11px;color:var(--dim)}
+.dc i{display:inline-block;font-style:normal;font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px;margin-bottom:4px;color:#06101f}
+.dc.on{border-color:var(--c);box-shadow:0 0 0 1px var(--c) inset}
+table{width:100%;border-collapse:collapse}
+td{padding:3px 0;vertical-align:top;border-bottom:1px solid #243058}
+td:first-child{color:var(--dim);width:42%;padding-right:8px}
+.story{margin:8px 0 0;color:#c9d3ff;line-height:1.5;font-size:13px}
+#part .nm{font-size:16px;font-weight:700}
+.chip{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:99px;color:#06101f;margin:4px 6px 4px 0}
+.k{color:var(--dim);font-size:12px;margin-top:8px}
+.v{margin-top:2px;line-height:1.5}
+.f{font-family:ui-monospace,Menlo,Consolas,monospace;background:#0b1230;border:1px solid #2a3763;border-radius:8px;padding:6px 8px;display:block;margin-top:2px;line-height:1.5;font-size:12.5px;color:#a7f3d0}
+.ph{color:var(--dim);line-height:1.5}
+.row{display:flex;align-items:center;gap:8px;margin:8px 0}
+.row label{flex:0 0 118px;color:var(--dim)}
+.row input[type=range]{flex:1;accent-color:var(--acc)}
+.row output{flex:0 0 40px;text-align:right;font-variant-numeric:tabular-nums}
+#tools{position:absolute;top:8px;right:8px;display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;max-width:calc(100% - 16px)}
+.tb{background:rgba(10,16,40,.78);color:#fff;border:1px solid #3a4a85;border-radius:9px;padding:6px 10px;font:inherit;font-size:12.5px;cursor:pointer;backdrop-filter:blur(4px)}
+.tb.on{background:#0ea5e9;border-color:#7dd3fc;color:#04121f;font-weight:700}
+#hud{position:absolute;left:8px;bottom:8px;background:rgba(10,16,40,.78);border:1px solid #3a4a85;border-radius:9px;padding:7px 10px;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre;pointer-events:none}
+#hint{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:rgba(10,16,40,.7);border-radius:99px;padding:5px 12px;font-size:12px;color:#cfe0ff;pointer-events:none;transition:opacity .6s;white-space:nowrap}
+@media(max-width:860px){
+ #app{grid-template-columns:1fr;grid-template-rows:56dvh 1fr}
+ #stage{order:-1}
+ #side{border-right:none;border-top:1px solid var(--line)}
+ #hint{display:none}
+}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<div id="app">
+  <aside id="side">
+    <h1>🚁 Drone Lab<small>Drone chuno, part pe tap karo, wo khul jayega</small></h1>
+    <div class="sec"><h3>Drones</h3><div id="cards"></div></div>
+    <div class="sec" id="part"><h3>Part ki jaankari</h3>
+      <div class="ph">Drone ke kisi bhi part pe tap/click karo. Drone khul jayega (exploded view) aur yahan us part ka naam, kaam, weight aur theory dikhegi.</div>
+    </div>
+    <div class="sec"><h3>Controls</h3>
+      <div class="row"><label>Throttle (prop speed)</label><input id="thr" type="range" min="0" max="1" step="0.01" value="0.35"><output id="vthr">35%</output></div>
+      <div class="row"><label>Hawa (wind)</label><input id="wind" type="range" min="0" max="1" step="0.01" value="0.3"><output id="vwind">0.3</output></div>
+      <div class="row"><label>Khulna (explode)</label><input id="exp" type="range" min="0" max="1" step="0.01" value="0"><output id="vexp">0%</output></div>
+    </div>
+    <div class="sec" id="info"><h3>Drone data</h3></div>
+    <div class="sec"><h3>Dhyan do</h3>
+      <div class="ph">Models code se bane visual approximations hain (real CAD nahi). Specs public sources ke approx figures hain, official datasheet se ek baar zaroor check karo. Part ka weight sirf estimated share hai.</div>
+    </div>
+  </aside>
+  <main id="stage">
+    <div id="tools">
+      <button class="tb" id="bFly">▶ Fly</button>
+      <button class="tb" id="bX">🔍 X-ray</button>
+      <button class="tb" id="bC">🎨 Function colors</button>
+      <button class="tb" id="bH">🧍 Insaan size</button>
+      <button class="tb" id="bN">🌙 Night</button>
+      <button class="tb" id="bA">⟲ Assemble</button>
+    </div>
+    <div id="hint">👆 Part pe tap karo • drag = ghumao • pinch/scroll = zoom</div>
+    <div id="hud"></div>
+  </main>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+
+const $ = id => document.getElementById(id);
+
+/* =====================================================================
+   DATA: function colors + theory for each kind of part
+   ===================================================================== */
+const KIND = {
+  body:    {col:'#94a3b8', n:'Frame / Body',      fn:'Poore drone ka dhancha. Electronics, battery aur sensors ko andar rakhta hai aur sab parts ko jodta hai.', mat:'Plastic (ABS/PC), carbon fibre ya magnesium/aluminium alloy', th:'Strength-to-weight ratio sabse zaroori: carbon fibre steel se ~5x halka par similar stiffness.\nCentre of gravity (CG) body ke beech me rakhte hain taki drone balanced udde.'},
+  arm:     {col:'#a78bfa', n:'Arm / Boom',        fn:'Motor ko body se jodta hai aur motor ka thrust aur torque body tak pahunchata hai.', mat:'Carbon fibre tube/plate ya reinforced plastic', th:'Arm ek cantilever beam hai. Bending stress: σ = M·c / I.\nLambi arm = zyada leverage par zyada flex, isliye hollow tube (high I, low mass) use hoti hai.'},
+  motor:   {col:'#f97316', n:'BLDC Motor',        fn:'Battery ki electrical energy ko ghoomne wali (rotational) energy me badalta hai aur propeller ko ghumata hai.', mat:'Copper winding, neodymium magnets, aluminium bell', th:'Brushless DC motor: speed ≈ KV × Volt (rpm), torque τ = Kt · I.\nKV kam = zyada torque (bade prop), KV zyada = tez ghumna (chhote prop).'},
+  prop:    {col:'#22d3ee', n:'Propeller',         fn:'Ghoomke hawa ko neeche (ya peeche) dhakelta hai, jisse lift/thrust milta hai.', mat:'Nylon/plastic ya carbon fibre composite', th:'Blade ek rotating wing (airfoil) hai. Thrust T = CT · ρ · n² · D⁴  (n = rev/s, D = diameter).\nBada prop + kam rpm = zyada efficient (kam disk loading).'},
+  battery: {col:'#facc15', n:'Battery (LiPo/Li-ion)', fn:'Poore drone ko bijli deti hai. Flight time seedha battery ki energy par depend karta hai.', mat:'Lithium-polymer / lithium-ion cells', th:'Energy E (Wh) = Volt × Ah. Nominal cell = 3.7 V; "6S" = 6 cells series = 22.2 V.\nFlight time ≈ (E × usable%) / avg power. Battery drone ka sabse bhaari part hota hai.'},
+  fc:      {col:'#4ade80', n:'Flight Controller', fn:'Drone ka dimaag. Sensors padhke har millisecond me motors ki speed adjust karta hai taki drone stable rahe.', mat:'PCB: MCU + IMU (gyro + accelerometer) + barometer', th:'PID loop: u = Kp·e + Ki·∫e dt + Kd·de/dt  (e = target − actual angle).\nGyro ~kHz par padhta hai, mixer 4 motors ko alag command deta hai.'},
+  esc:     {col:'#fb7185', n:'ESC (Speed Controller)', fn:'Flight controller ka signal leke motor ko sahi current/timing deta hai.', mat:'PCB + MOSFET switches', th:'DC battery → 3-phase pulses (PWM). BLDC me rotor position ke hisaab se coils ko order me ON/OFF karna padta hai (commutation).\nESC ka current rating motor ke max current se zyada honi chahiye.'},
+  gps:     {col:'#2dd4bf', n:'GPS / GNSS',        fn:'Satellite se position batata hai: hold position, Return-to-Home, waypoints.', mat:'GNSS receiver + ceramic patch antenna', th:'Trilateration: kam se kam 4 satellites se distance naap ke (x, y, z, time) nikalte hain.\nRTK me base station ke correction se accuracy cm tak aa jati hai.'},
+  gimbal:  {col:'#c084fc', n:'3-axis Gimbal',     fn:'Camera ko stable rakhta hai chahe drone hile ya jhuke.', mat:'Brushless gimbal motors + IMU, aluminium/plastic yoke', th:'Gimbal IMU camera ki hilna maapta hai, 3 motors (pitch, roll, yaw) ulti disha me ghumke cancel karte hain.\nIsi se video smooth aur "jelly effect" se mukt hota hai.'},
+  camera:  {col:'#60a5fa', n:'Camera',            fn:'Photo/video capture karta hai ya sensing (EO/IR) deta hai.', mat:'CMOS sensor + glass lens elements', th:'CMOS pixel light ko charge me badalta hai. Bada sensor = zyada light = kam noise raat me.\nField of view FOV = 2·atan(sensor_width / (2·focal_length)).'},
+  sensor:  {col:'#f472b6', n:'Obstacle/Vision Sensor', fn:'Aas-paas ki cheezein aur zameen se doori dekhta hai taki takrao na ho.', mat:'Stereo cameras / ToF / infrared', th:'Stereo vision: depth Z = f·B / d  (f = focal length, B = do cameras ke beech doori, d = disparity).\nVision sensors se indoor me bhi position hold hoti hai (GPS ke bina).'},
+  led:     {col:'#f43f5e', n:'LED Indicator',     fn:'Drone ki disha aur status dikhata hai (front/back, battery, GPS).', mat:'LED + diffuser', th:'Aam rang: red/green navigation lights. Raat me orientation samajhne me madad.'},
+  gear:    {col:'#fbbf24', n:'Landing Gear',      fn:'Utarte samay jhatka sokhta hai aur body/camera ko zameen se door rakhta hai.', mat:'Plastic/carbon fibre ya steel/alloy struts + rubber tyres', th:'Impact energy: ½·m·v² landing me gear ke deform hone se absorb hoti hai.\nBade drones me gear retract (andar) ho sakta hai taki drag kam ho.'},
+  antenna: {col:'#38bdf8', n:'Antenna / Radio Link', fn:'Remote controller aur video link ke liye radio signal bhejta/leta hai.', mat:'Copper element + plastic cover', th:'2.4 / 5.8 GHz band. Signal range Friis formula se: FSPL = 20·log10(d) + 20·log10(f) + 32.44 (dB, d in km, f in MHz).\nDoori double = ~6 dB nuksan.'},
+  wing:    {col:'#34d399', n:'Wing',              fn:'Aage badhte hue lift paida karta hai jisse hawai jahaz hawa me tika rehta hai.', mat:'Carbon/glass composite, metal ribs', th:'Lift L = ½·ρ·v²·S·CL.\nLambe aur patle wing (high aspect ratio AR = b²/S) me induced drag kam hoti hai, isliye long-endurance drones me lambe wings hote hain.'},
+  tail:    {col:'#f59e0b', n:'Tail (V-tail)',     fn:'Drone ko stable rakhta hai aur pitch (upar-neeche) tatha yaw (daaye-baaye) control karta hai.', mat:'Composite skin', th:'V-tail me dono surfaces ruddervator ka kaam karte hain: dono ek saath = pitch, ulte = yaw.\nKam surfaces = kam drag aur weight.'},
+  fuselage:{col:'#94a3b8', n:'Fuselage',          fn:'Hawai jahaz ka main dhancha: fuel, engine, avionics aur payload andar rehte hain.', mat:'Composite shell + metal frames', th:'Streamlined shape se drag kam hoti hai: D = ½·ρ·v²·S·CD.\nCG wing ke lift-centre ke aas-paas rakhna padta hai.'},
+  engine:  {col:'#ef4444', n:'Engine',            fn:'Propeller ya fan ko ghumake thrust paida karta hai.', mat:'Steel/aluminium/titanium alloys', th:'Engine fuel ki chemical energy ko power me badalta hai.\nThrust-power: P = T·v. Turboprop = Brayton cycle gas turbine + gearbox; piston = Otto cycle.'},
+  fuel:    {col:'#eab308', n:'Fuel Tank',         fn:'Engine ke liye fuel rakhta hai. Endurance (kitni der udega) zyada tar yahi decide karta hai.', mat:'Bladder / integral tank', th:'Endurance ≈ Fuel / fuel-flow.\nFuel hi sabse bada weight hota hai; udte-udte halka hota jata hai (Breguet range equation).'},
+  avionics:{col:'#4ade80', n:'Avionics Bay',      fn:'Computers, autopilot, data-links aur power electronics ka dibba.', mat:'Racks + PCBs, EMI shielding', th:'Autopilot sensor fusion (GPS + IMU + air-data) Kalman filter se karta hai.\nRedundancy: kai computers taki ek fail ho jaye to bhi udta rahe.'},
+  satcom:  {col:'#2dd4bf', n:'SATCOM Dome',       fn:'Satellite se jodta hai taki drone ko bahut door se (beyond line of sight) control kiya ja sake.', mat:'Radome (RF-transparent composite) + steerable dish', th:'Dish gain G ≈ η·(πD/λ)². Bada dish = narrow beam = zyada data.\nGeostationary satellite ~36,000 km door, isliye ~0.25 s delay aati hai.'},
+  turret:  {col:'#60a5fa', n:'EO/IR Sensor Turret', fn:'Din me camera aur raat me thermal (infrared) camera se zameen dekhta hai.', mat:'Gimbal + optics (germanium/sapphire window)', th:'Thermal camera 8–14 µm infrared padhta hai: garam cheez zyada radiate karti hai (Stefan–Boltzmann: P ∝ T⁴).\nGimbal line-of-sight ko stabilize karta hai.'},
+  radar:   {col:'#a78bfa', n:'SAR Radar',         fn:'Radar se badal/raat me bhi zameen ki tasveer banata hai.', mat:'Phased/array antenna + radome', th:'Synthetic Aperture Radar: drone ki movement se ek "lamba virtual antenna" banta hai.\nResolution ≈ L_antenna / 2 (range par nirbhar nahi).'},
+  pylon:   {col:'#fb923c', n:'Payload Pylon',     fn:'Wing ke neeche sensors ya extra tank lagane ki jagah.', mat:'Aluminium/composite hardpoint', th:'Hardpoint par aane wala load wing spar se share hota hai.\nExternal store lagane se drag badhti hai aur endurance ghatti hai.'}
+};
+
+/* =====================================================================
+   DATA: drones (specs from public sources, approx)
+   ===================================================================== */
+const DRONES = [
+ {id:'mini2', name:'DJI Mini 2', cat:'Consumer', type:'multi', mass:0.242, massLbl:'total weight',
+  maker:'DJI', place:'Shenzhen, China', year:'Nov 2020', rotors:4,
+  specs:[['Weight','242 g (250 g se kam class)'],['Folded size','138 × 81 × 58 mm'],['Flight time','~31 min (max)'],['Max speed','16 m/s (~58 km/h) Sport'],['Ceiling','4,000 m (sea level se)'],['Camera','1/2.3" CMOS, 12 MP, 4K/30'],['Gimbal','3-axis'],['Video range','~10 km (ideal, FCC)']],
+  story:'Mini 2 chhota folding quadcopter hai jo beginners ke liye bana. 250 g se kam weight hone se kai deshon me registration/rules halke hote hain.',
+  parts:{body:{kind:'body',name:'Body shell',share:.16},arm:{kind:'arm',name:'Folding arm',share:.08},motor:{kind:'motor',name:'Motor',share:.14},prop:{kind:'prop',name:'Folding propeller',share:.02},battery:{kind:'battery',name:'Intelligent Flight Battery',share:.34,note:'2S Li-ion pack (~7.7 V).'},fc:{kind:'fc',name:'Flight controller board',share:.04},esc:{kind:'esc',name:'ESC board',share:.03},gps:{kind:'gps',name:'GNSS module',share:.01},gimbal:{kind:'gimbal',name:'3-axis gimbal',share:.06},camera:{kind:'camera',name:'Camera (4K)',share:.04},sensor:{kind:'sensor',name:'Downward vision sensor',share:.01,note:'Mini 2 me neeche vision sensors hain; poore obstacle avoidance nahi.'},led:{kind:'led',name:'LED',share:.005},antenna:{kind:'antenna',name:'Antenna',share:.01}}},
+ {id:'mavic3', name:'DJI Mavic 3', cat:'Consumer', type:'multi', mass:0.895, massLbl:'total weight',
+  maker:'DJI', place:'Shenzhen, China', year:'Nov 2021', rotors:4,
+  specs:[['Weight','895 g'],['Folded size','221 × 96 × 90 mm'],['Flight time','~46 min (max)'],['Max speed','21 m/s (~75 km/h)'],['Ceiling','6,000 m (sea level se)'],['Cameras','Hasselblad 4/3" 20 MP + 12 MP tele'],['Sensing','Omnidirectional obstacle avoidance'],['Video range','~15 km (ideal, FCC)']],
+  story:'Mavic 3 me Hasselblad ka bada sensor wala camera hai aur saath me tele camera. Prosumer aur filmmakers ke liye popular.',
+  parts:{body:{kind:'body',name:'Body shell',share:.17},arm:{kind:'arm',name:'Folding arm',share:.07},motor:{kind:'motor',name:'Motor',share:.12},prop:{kind:'prop',name:'Folding propeller',share:.02},battery:{kind:'battery',name:'Intelligent Flight Battery',share:.37,note:'4S pack, ~5000 mAh class.'},fc:{kind:'fc',name:'Flight controller board',share:.04},esc:{kind:'esc',name:'ESC board',share:.03},gps:{kind:'gps',name:'GNSS module',share:.01},gimbal:{kind:'gimbal',name:'3-axis gimbal',share:.05},camera:{kind:'camera',name:'Hasselblad + tele cameras',share:.07},sensor:{kind:'sensor',name:'Vision sensor',share:.02},led:{kind:'led',name:'LED',share:.005},antenna:{kind:'antenna',name:'Antenna',share:.01}}},
+ {id:'phantom4', name:'DJI Phantom 4', cat:'Consumer', type:'multi', mass:1.38, massLbl:'total weight',
+  maker:'DJI', place:'Shenzhen, China', year:'Mar 2016', rotors:4,
+  specs:[['Weight','1,380 g'],['Diagonal size','350 mm (props ke bina)'],['Flight time','~28 min (max)'],['Max speed','20 m/s (~72 km/h) Sport'],['Ceiling','6,000 m (sea level se)'],['Camera','1/2.3" CMOS, 12.4 MP, 4K/30'],['Sensing','Front obstacle + downward vision'],['Positioning','GPS/GLONASS + vision']],
+  story:'Phantom series ne drones ko aam logo tak pahunchaya. White shell, fixed arms aur landing legs iski pehchan hai.',
+  parts:{body:{kind:'body',name:'Shell + arms',share:.22},arm:{kind:'arm',name:'Arm',share:.05},motor:{kind:'motor',name:'Motor',share:.12},prop:{kind:'prop',name:'Quick-release propeller',share:.03},battery:{kind:'battery',name:'Intelligent Flight Battery',share:.3,note:'4S LiPo (~5350 mAh class).'},fc:{kind:'fc',name:'Flight controller',share:.04},esc:{kind:'esc',name:'ESC board',share:.03},gps:{kind:'gps',name:'GPS/GLONASS module',share:.01},gimbal:{kind:'gimbal',name:'3-axis gimbal',share:.05},camera:{kind:'camera',name:'4K camera',share:.04},sensor:{kind:'sensor',name:'Obstacle / vision sensor',share:.02},gear:{kind:'gear',name:'Landing leg',share:.05},led:{kind:'led',name:'LED',share:.005},antenna:{kind:'antenna',name:'Antenna',share:.01}}},
+ {id:'m300', name:'DJI Matrice 300 RTK', cat:'Pro / Industrial', type:'multi', mass:6.3, massLbl:'weight with 2 batteries, bina payload',
+  maker:'DJI', place:'Shenzhen, China', year:'May 2020', rotors:4,
+  specs:[['Weight','~6.3 kg (2 batteries, bina payload)'],['Max takeoff','9 kg'],['Unfolded size','810 × 670 × 430 mm (props ke bina)'],['Flight time','~55 min (no payload)'],['Max speed','23 m/s (~83 km/h)'],['Protection','IP45'],['Ceiling','5,000 m (sea level se)'],['Use','Inspection, mapping, public safety']],
+  story:'Enterprise drone: dual batteries (hot-swap), RTK GPS se cm-level position aur kai payloads (thermal, zoom, LiDAR) lagte hain. Power line, bridge aur search-and-rescue me use hota hai.',
+  parts:{body:{kind:'body',name:'Main fuselage',share:.2},arm:{kind:'arm',name:'Folding arm',share:.1},motor:{kind:'motor',name:'Motor',share:.1},prop:{kind:'prop',name:'21-inch propeller',share:.03},battery:{kind:'battery',name:'Flight battery (TB60 class)',share:.22,note:'Do batteries hain (redundancy).'},fc:{kind:'fc',name:'Flight controller',share:.03},esc:{kind:'esc',name:'ESC',share:.04},gps:{kind:'gps',name:'RTK GNSS antenna',share:.02,note:'RTK = cm-level accuracy.'},gimbal:{kind:'gimbal',name:'Payload gimbal mount',share:.05},camera:{kind:'camera',name:'Payload camera (optional)',share:0,wnote:'Optional payload, base weight me shamil nahi'},sensor:{kind:'sensor',name:'Obstacle sensor',share:.03},gear:{kind:'gear',name:'Landing skid',share:.08},led:{kind:'led',name:'LED',share:.005},antenna:{kind:'antenna',name:'Antenna',share:.02}}},
+ {id:'fpv5', name:'FPV 5" Freestyle (generic)', cat:'Racing / FPV', type:'multi', mass:0.68, massLbl:'typical total (6S battery ke saath)',
+  maker:'Hobby builds (kai brands)', place:'Class, koi ek company nahi', year:'~2015 se popular', rotors:4,
+  specs:[['Weight','~600-750 g typical'],['Frame','5" carbon, ~220 mm wheelbase'],['Motors','~2306, ~1750 KV (typical)'],['Battery','6S LiPo, ~1300 mAh'],['Speed','100+ km/h (140+ possible)'],['Flight time','~3-5 min'],['Thrust-to-weight','>6:1 (typical)'],['Control','Acro/rate mode, goggles se FPV']],
+  story:'FPV drones pilot ko goggles se camera ki aankh se udate hain. Gimbal/GPS nahi hota, isliye bahut fast aur agile hote hain. Ye ek generic design hai, kisi ek company ka model nahi.',
+  parts:{body:{kind:'body',name:'Carbon plates + standoffs',share:.1},arm:{kind:'arm',name:'Carbon arm',share:.12},motor:{kind:'motor',name:'Motor (2306 class)',share:.22},prop:{kind:'prop',name:'5-inch tri-blade prop',share:.03},battery:{kind:'battery',name:'6S LiPo battery',share:.32,note:'Zyada current deta hai (high C-rating).'},fc:{kind:'fc',name:'Flight controller',share:.03},esc:{kind:'esc',name:'4-in-1 ESC',share:.06},gps:{kind:'gps',name:'GPS module',share:.01},camera:{kind:'camera',name:'FPV camera',share:.02},led:{kind:'led',name:'LED strip',share:.005},antenna:{kind:'antenna',name:'Video antenna',share:.02}}},
+ {id:'mq9', name:'MQ-9 Reaper', cat:'Military (fixed-wing)', type:'fixed', mass:2223, massLbl:'empty weight', flat:true,
+  maker:'General Atomics Aeronautical Systems', place:'Poway, California, USA', year:'First flight: 2 Feb 2001', rotors:1,
+  specs:[['Wingspan','20.1 m'],['Length','11 m'],['Height','3.8 m'],['Empty weight','2,223 kg'],['Max takeoff','4,760 kg'],['Engine','Honeywell TPE331-10GD turboprop, 900 shp'],['Max speed','~480 km/h'],['Endurance','~27-30 h (ISR config)'],['Payload','up to ~1,700 kg, 6 pylons']],
+  story:'Predator family ka bada, turboprop version. Satellite link se door baithe pilot control karte hain. Surveillance (ISR) aur strike dono ke liye bana. Model ka tail shape visual approximation hai.',
+  parts:{fuselage:{kind:'fuselage',name:'Fuselage',share:.16},nose:{kind:'satcom',name:'Nose radome + SATCOM',share:.04},wing:{kind:'wing',name:'Wing (half)',share:.1},tail:{kind:'tail',name:'Tail surface',share:.015},engine:{kind:'engine',name:'TPE331 turboprop',share:.08,note:'Propeller pichhe laga hai (pusher).'},prop:{kind:'prop',name:'Pusher propeller',share:.02},fuel:{kind:'fuel',name:'Fuel tank',share:.04,note:'Weight me sirf tank; fuel empty weight me nahi.'},avionics:{kind:'avionics',name:'Avionics bay',share:.06},turret:{kind:'turret',name:'EO/IR turret',share:.02},pylon:{kind:'pylon',name:'Stores pylon',share:.006},gear:{kind:'gear',name:'Landing gear',share:.05},antenna:{kind:'antenna',name:'Antenna',share:.005}}},
+ {id:'rq4', name:'RQ-4B Global Hawk', cat:'Military (HALE)', type:'fixed', mass:14628, massLbl:'max takeoff weight (fuel + payload shamil)', flat:true,
+  maker:'Northrop Grumman', place:'USA', year:'First flight: 28 Feb 1998', rotors:1,
+  specs:[['Wingspan','39.9 m'],['Length','14.5 m'],['Height','4.7 m'],['Max takeoff','14,628 kg'],['Payload','~1,360 kg (internal)'],['Engine','Rolls-Royce F137-RR-100 turbofan, ~34 kN'],['Max speed','~629 km/h'],['Ceiling','~18,000 m (60,000 ft)'],['Endurance','34+ h'],['Range','~22,800 km']],
+  story:'High-altitude long-endurance (HALE) surveillance drone. Bahut unchai par 30+ ghante udta hai. Lambe patle wing aur upar-peeche laga jet engine iski pehchan hai.',
+  parts:{fuselage:{kind:'fuselage',name:'Fuselage',share:.1},nose:{kind:'satcom',name:'SATCOM dome (nose hump)',share:.02},wing:{kind:'wing',name:'Wing (half)',share:.07},tail:{kind:'tail',name:'V-tail surface',share:.01},engine:{kind:'engine',name:'Turbofan engine',share:.06,note:'Upar peeche laga; intake aage se.'},fuel:{kind:'fuel',name:'Fuel (MTOW share)',share:.42,note:'MTOW ka sabse bada hissa fuel hai.'},avionics:{kind:'avionics',name:'Avionics + payload bay',share:.09},turret:{kind:'turret',name:'EO/IR sensor',share:.01},radar:{kind:'radar',name:'SAR radar (belly)',share:.03},gear:{kind:'gear',name:'Landing gear',share:.03},antenna:{kind:'antenna',name:'Antenna',share:.005}}},
+ {id:'tb2', name:'Bayraktar TB2', cat:'Military (fixed-wing)', type:'fixed', mass:700, massLbl:'max takeoff weight (fuel + payload shamil)', flat:true,
+  maker:'Baykar', place:'Turkey', year:'First flight: Aug 2014', rotors:1,
+  specs:[['Wingspan','12 m'],['Length','6.5 m'],['Max takeoff','~700 kg'],['Payload','~150 kg'],['Engine','~100 hp piston (Rotax 912 iS ya TM100)'],['Max speed','~222 km/h'],['Ceiling','~7,620 m (25,000 ft)'],['Endurance','20+ h']],
+  story:'Medium-altitude drone jisme ek piston engine pichhe propeller ghumata hai aur inverted V-tail hai. Sasta aur halka hone ke karan kai deshon ne liya.',
+  parts:{fuselage:{kind:'fuselage',name:'Fuselage',share:.2},wing:{kind:'wing',name:'Wing (half)',share:.07},tail:{kind:'tail',name:'Inverted V-tail surface',share:.015},engine:{kind:'engine',name:'Piston engine (~100 hp)',share:.1},prop:{kind:'prop',name:'Pusher propeller',share:.02},fuel:{kind:'fuel',name:'Fuel (MTOW share)',share:.15},avionics:{kind:'avionics',name:'Avionics bay',share:.06},turret:{kind:'turret',name:'EO/IR sensor ball',share:.03},gear:{kind:'gear',name:'Landing gear',share:.03},antenna:{kind:'antenna',name:'Antenna',share:.01}}}
+];
+
+/* =====================================================================
+   THREE.JS SETUP
+   ===================================================================== */
+const stage = $('stage');
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(48, 1, 0.01, 4000);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+stage.insertBefore(renderer.domElement, stage.firstChild);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+function resize(){
+  const w = stage.clientWidth, h = stage.clientHeight || 400;
+  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize); resize();
+
+const hemi = new THREE.HemisphereLight(0xcfe6ff, 0x3a4a60, 1.0);
+const sun = new THREE.DirectionalLight(0xfff1d6, 2.2);
+sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+scene.add(hemi, sun, sun.target);
+const ground = new THREE.Mesh(new THREE.CircleGeometry(1, 64), new THREE.MeshStandardMaterial({color:0x22304f, roughness:1}));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+const grid = new THREE.GridHelper(2, 20, 0x4a6fa5, 0x2b3d5c); scene.add(grid);
+
+/* =====================================================================
+   MODEL-BUILD HELPERS
+   ===================================================================== */
+let model = null, inst = [], spin = [], D = null;
+const M = (c, o = {}) => {
+  const m = new THREE.MeshStandardMaterial({color: c, roughness: o.r ?? 0.5, metalness: o.m ?? 0.2, side: o.ds ? THREE.DoubleSide : THREE.FrontSide});
+  m.userData.orig = new THREE.Color(c); return m;
+};
+const mesh = (geo, c, o) => { const m = new THREE.Mesh(geo, M(c, o)); m.castShadow = true; m.receiveShadow = true; return m; };
+const at = (o, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => { o.position.set(x, y, z); o.rotation.set(rx, ry, rz); return o; };
+const box = (w, h, d, c, o) => mesh(new THREE.BoxGeometry(w, h, d), c, o);
+const cyl = (rt, rb, h, c, o, s = 24) => mesh(new THREE.CylinderGeometry(rt, rb, h, s), c, o);
+const sph = (r, c, o, sx = 1, sy = 1, sz = 1) => { const m = mesh(new THREE.SphereGeometry(r, 28, 20), c, o); m.scale.set(sx, sy, sz); return m; };
+function P(key, ex) { const g = new THREE.Group(); g.userData.key = key; g.userData.ex = ex || null; model.add(g); inst.push(g); return g; }
+
+/* ----- propeller (multirotor: axis y; pusher: axis z) ----- */
+function addProp(x, y, z, Dm, blades, col, dir, axisZ) {
+  const g = P('prop'); const rot = new THREE.Group(); rot.position.set(x, y, z); g.add(rot);
+  const bw = Dm * 0.09;
+  for (let i = 0; i < blades; i++) {
+    const a = i * Math.PI * 2 / blades, bg = new THREE.Group();
+    if (axisZ) bg.rotation.z = a; else bg.rotation.y = a;
+    const th = Dm * 0.012 + 0.002;
+    const b = axisZ ? box(bw, Dm / 2, th, col, {m: .1}) : box(Dm / 2, th, bw, col, {m: .1});
+    if (axisZ) { b.position.y = Dm / 4; b.rotation.y = 0.35; }
+    else { b.position.x = Dm / 4; b.rotation.x = 0.28; }
+    bg.add(b); rot.add(bg);
+  }
+  const hub = cyl(Dm * 0.07, Dm * 0.07, Dm * 0.07, '#d1d5db', {m: .8}); if (axisZ) hub.rotation.x = Math.PI / 2; rot.add(hub);
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(Dm / 2, 48), new THREE.MeshBasicMaterial({color: 0xffffff, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false}));
+  if (!axisZ) disc.rotation.x = -Math.PI / 2; disc.raycast = () => {}; rot.add(disc);
+  spin.push({rot, axis: axisZ ? 'z' : 'y', dir, disc, rpm: axisZ ? 1.6 : 1});
+  return g;
+}
+
+/* ----- generic multirotor ----- */
+function buildMulti(o) {
+  const mt = o.motors;
+  // body
+  const body = P('body', [0, 0.55, 0]);
+  body.add(at(box(o.bw, o.bh, o.bd, o.bodyCol, {r: .4, m: .15}), 0, 0, 0));
+  if (o.shell) body.add(at(sph(1, o.bodyCol, {r: .35}, o.bw * 0.55, o.bh * 0.75, o.bd * 0.55), 0, o.bh * 0.15, 0));
+  if (o.stripe) body.add(at(box(o.bw * 0.5, 0.004, o.bd * 0.5, o.stripe, {r: .4}), 0, o.bh / 2 + 0.002, 0));
+  if (o.plates) { // FPV: two plates
+    body.clear();
+    body.add(at(box(o.bw, 0.004, o.bd, o.bodyCol, {r: .4, m: .1}), 0, -0.016, 0), at(box(o.bw, 0.004, o.bd, o.bodyCol, {r: .4, m: .1}), 0, 0.022, 0));
+    [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([a, b]) => body.add(at(cyl(0.004, 0.004, 0.038, '#d1d5db', {m: .9}, 8), a * o.bw * .42, 0.003, b * o.bd * .42)));
+  }
+  // arms, motors, props, leds, esc-arm
+  mt.forEach(([x, z], i) => {
+    const L = Math.hypot(x, z), ang = -Math.atan2(z, x), ay = o.armY ?? 0;
+    P('arm').add(at(box(L, o.armT, o.armW, o.armCol, {r: .5, m: .3}), x / 2, ay, z / 2, 0, ang, 0));
+    const mp = P('motor');
+    mp.add(at(cyl(o.mr, o.mr, o.mh, o.motorCol || '#f97316', {m: .8, r: .3}), x, ay + o.mh / 2 + o.armT / 2, z));
+    mp.add(at(cyl(o.mr * .78, o.mr * .78, o.mh * .25, '#1f2937', {m: .5}), x, ay + o.armT / 2 + o.mh + 0.001, z));
+    addProp(x, ay + o.armT / 2 + o.mh + o.mh * 0.2 + o.propD * 0.04, z, o.propD, o.blades, o.propCol, i % 2 ? 1 : -1);
+    if (o.leds !== false) P('led').add(at(sph(o.mr * .32, z > 0 ? '#34d399' : '#ff3355', {r: .2}), x * 1.0, ay - o.armT / 2 - o.mr * 0.1, z * 1.0 + (z > 0 ? o.mr * 0.9 : -o.mr * 0.9)));
+  });
+  // internals
+  P('fc', [0, 0.35, 0]).add(at(box(o.bw * .5, 0.004, o.bd * .35, '#16a34a', {r: .6}), 0, o.fcY ?? 0.008, o.bd * .05), at(box(o.bw * .14, 0.006, o.bw * .14, '#111827'), 0, (o.fcY ?? 0.008) + 0.006, o.bd * .05));
+  P('esc', [0, 0.18, 0]).add(at(box(o.bw * .55, 0.004, o.bd * .4, '#be123c', {r: .6}), 0, o.escY ?? -0.008, -o.bd * .03));
+  const b = o.battery; P('battery', b.ex || [0, -0.4, 0]).add(at(box(b.w, b.h, b.d, b.col, {r: .5, m: .2}), b.x || 0, b.y || 0, b.z || 0));
+  // gps
+  const gp = o.gps; if (gp) P('gps', [0, 0.9, -0.1]).add(at(cyl(gp.r, gp.r, gp.h, '#e5e7eb', {r: .3}), gp.x, gp.y, gp.z));
+  // gimbal + camera
+  if (o.gimbal) {
+    const g = o.gimbal, gg = P('gimbal', [0, -0.3, 0.5]);
+    gg.add(at(box(g.s * 1.1, g.s * .18, g.s * .5, '#111827', {m: .5}), 0, g.y + g.s * .55, g.z));
+    gg.add(at(box(g.s * .15, g.s * .9, g.s * .15, '#1f2937', {m: .6}), -g.s * .5, g.y, g.z), at(box(g.s * .15, g.s * .9, g.s * .15, '#1f2937', {m: .6}), g.s * .5, g.y, g.z));
+    const cm = P('camera', [0, -0.45, 0.8]);
+    cm.add(at(box(g.s * .85, g.s * .75, g.s * .85, '#0f172a', {r: .3, m: .4}), 0, g.y, g.z));
+    cm.add(at(cyl(g.s * .27, g.s * .3, g.s * .22, '#020617', {r: .1, m: .6}), 0, g.y, g.z + g.s * .48, Math.PI / 2));
+    cm.add(at(cyl(g.s * .2, g.s * .2, g.s * .03, '#38bdf8', {r: .05, m: .9}), 0, g.y, g.z + g.s * .6, Math.PI / 2));
+    if (g.tele) cm.add(at(cyl(g.s * .12, g.s * .12, g.s * .2, '#020617', {m: .6}), g.s * .55, g.y + g.s * .22, g.z + g.s * .4, Math.PI / 2));
+  } else if (o.fpvCam) {
+    const cm = P('camera', [0, 0.1, 0.8]), c = o.fpvCam;
+    cm.add(at(box(c.s, c.s, c.s * .8, '#111827', {m: .4}), 0, c.y, c.z, -0.4), at(cyl(c.s * .32, c.s * .32, c.s * .3, '#020617', {m: .6}), 0, c.y + 0.002, c.z + c.s * .5, Math.PI / 2 - 0.4));
+  }
+  // sensors
+  (o.sensors || []).forEach(s => P('sensor', s.ex || null).add(at(box(s.w, s.h, s.d, '#0b1020', {r: .2, m: .6}), s.x, s.y, s.z), at(box(s.w * .5, s.h * .5, 0.002, '#7dd3fc', {r: .05}), s.x, s.y, s.z + (s.zf || 0))));
+  // gear
+  if (o.gear === 'skids') {
+    const gy = o.gearY, gl = o.gearL, gx = o.gearX;
+    [-1, 1].forEach(sx => { const g = P('gear', [sx * 0.5, -0.5, 0]);
+      g.add(at(cyl(0.008 * o.k, 0.008 * o.k, gl, o.gearCol, {m: .5}, 10), sx * gx, gy, 0, Math.PI / 2));
+      [-1, 1].forEach(sz => g.add(at(cyl(0.006 * o.k, 0.006 * o.k, o.gearH, o.gearCol, {m: .5}, 8), sx * gx * .93, gy + o.gearH / 2, sz * gl * .3, 0, 0, sx * 0.22)));
+    });
+  } else if (o.gear === 'feet') {
+    [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([a, b]) => P('gear', [a * 0.3, -0.5, b * 0.3]).add(at(cyl(o.footR, o.footR * 1.1, o.footH, '#111827', {r: .9}, 10), a * o.bw * .42, -o.bh / 2 - o.footH / 2, b * o.bd * .38)));
+  }
+  // antennas
+  (o.antennas || []).forEach(a => P('antenna', [a.x > 0 ? 0.3 : -0.3, 0.5, -0.4]).add(at(cyl(a.r, a.r, a.h, '#111827', {r: .5}, 8), a.x, a.y, a.z, a.rx || 0, 0, a.rz || 0)));
+  if (o.extras) o.extras();
+}
+
+/* ----- lathe + taper helpers for fixed-wing ----- */
+const lathe = (pts, col, o) => { const g = new THREE.LatheGeometry(pts.map(p => new THREE.Vector2(p[0], p[1])), 40); g.rotateX(Math.PI / 2); return mesh(g, col, Object.assign({ds: true}, o)); };
+function taperGeo(len, c0, c1, t0, t1, sweep) {
+  const v = [[0, t0 / 2, c0 / 2], [0, t0 / 2, -c0 / 2], [0, -t0 / 2, -c0 / 2], [0, -t0 / 2, c0 / 2],
+             [len, t1 / 2, c1 / 2 - sweep], [len, t1 / 2, -c1 / 2 - sweep], [len, -t1 / 2, -c1 / 2 - sweep], [len, -t1 / 2, c1 / 2 - sweep]];
+  const f = [[0,1,2],[0,2,3],[4,6,5],[4,7,6],[0,4,5],[0,5,1],[3,2,6],[3,6,7],[0,3,7],[0,7,4],[1,5,6],[1,6,2]];
+  const pos = []; f.forEach(t => t.forEach(i => pos.push(...v[i])));
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); return g;
+}
+const taper = (len, c0, c1, t0, t1, sweep, col, o) => mesh(taperGeo(len, c0, c1, t0, t1, sweep), col, Object.assign({ds: true, r: .45}, o));
+
+/* ----- generic fixed-wing ----- */
+function buildFixed(o) {
+  const f = P('fuselage', [0, 0.2, 0]); f.add(lathe(o.pts, o.bodyCol, {r: .4, m: .15}));
+  if (o.stripe) f.add(at(box(o.stripe.w, 0.01, o.stripe.d, o.stripe.c, {r: .4}), 0, o.stripe.y, o.stripe.z));
+  // wings
+  [1, -1].forEach(s => {
+    const w = P('wing'), m = taper(o.w.len, o.w.c0, o.w.c1, o.w.t0, o.w.t1, o.w.sw, o.wingCol, {m: .15});
+    m.position.set(s * o.w.x0, o.w.y, o.w.z); m.scale.x = s; w.add(m);
+    if (o.w.tip) w.add(at(box(0.08, o.w.t1 * 3, o.w.c1 * 1.0, o.tipCol, {r: .3}), s * (o.w.x0 + o.w.len), o.w.y, o.w.z - o.w.sw));
+  });
+  // tail
+  [1, -1].forEach(s => {
+    const t = P('tail'), m = taper(o.t.len, o.t.c0, o.t.c1, o.t.t0, o.t.t1, o.t.sw, o.tailCol, {m: .15});
+    m.position.set(s * o.t.x0, o.t.y, o.t.z); m.scale.x = s; m.rotation.z = s * o.t.dih; t.add(m);
+  });
+  // engine inside + prop or nacelle
+  const e = P('engine', o.e.ex || [0, 0.5, -0.5]);
+  if (o.e.nacelle) {
+    e.add(at(cyl(o.e.r, o.e.r * .9, o.e.len, '#9ca3af', {m: .7, r: .3}, 28), 0, o.e.y, o.e.z, Math.PI / 2));
+    e.add(at(cyl(o.e.r * .93, o.e.r * .93, 0.08, '#0b1020', {m: .5}, 28), 0, o.e.y, o.e.z + o.e.len / 2 + 0.02, Math.PI / 2));
+    e.add(at(cyl(o.e.r * .45, o.e.r * .45, o.e.len * 1.02, '#374151', {m: .8}, 20), 0, o.e.y, o.e.z, Math.PI / 2));
+    e.add(at(box(0.5, o.e.y - 0.3, 1.2, o.bodyCol), 0, (o.e.y + 0.3) / 2, o.e.z - 0.2));
+  } else {
+    e.add(at(cyl(o.e.r, o.e.r, o.e.len, '#6b7280', {m: .8, r: .35}, 24), 0, o.e.y, o.e.z, Math.PI / 2));
+    e.add(at(cyl(o.e.r * .6, o.e.r * .6, o.e.len * 1.12, '#ef4444', {m: .5}, 16), 0, o.e.y, o.e.z, Math.PI / 2));
+  }
+  if (o.prop) addProp(0, o.prop.y || 0, o.prop.z, o.prop.D, o.prop.blades, o.propCol || '#1f2937', 1, true);
+  // inside parts
+  if (o.fuel) P('fuel', [0, 0.35, 0]).add(at(cyl(o.fuel.r, o.fuel.r, o.fuel.len, '#eab308', {r: .5, m: .2}, 24), 0, o.fuel.y || 0, o.fuel.z, Math.PI / 2));
+  if (o.av) P('avionics', [0, 0.6, 0.3]).add(at(box(o.av.w, o.av.h, o.av.d, '#16a34a', {r: .5, m: .3}), 0, o.av.y || 0, o.av.z), at(box(o.av.w * .8, o.av.h * .3, o.av.d * .8, '#14532d'), 0, (o.av.y || 0) + o.av.h * .6, o.av.z));
+  if (o.sat) P('nose', [0, 0.4, 0.9]).add(...o.sat);
+  if (o.turret) P('turret', [0, -0.55, 0.4]).add(at(sph(o.turret.r, '#111827', {m: .6, r: .3}), 0, o.turret.y, o.turret.z), at(cyl(o.turret.r * .38, o.turret.r * .38, o.turret.r * .25, '#38bdf8', {m: .9, r: .05}), 0, o.turret.y - o.turret.r * .05, o.turret.z + o.turret.r * .95, Math.PI / 2), at(cyl(o.turret.r * .22, o.turret.r * .22, o.turret.r * .25, '#f43f5e', {m: .9, r: .05}), o.turret.r * .38, o.turret.y + o.turret.r * .3, o.turret.z + o.turret.r * .9, Math.PI / 2));
+  if (o.radar) P('radar', [0, -0.5, 0]).add(at(sph(1, '#a78bfa', {r: .4}, o.radar.sx, o.radar.sy, o.radar.sz), 0, o.radar.y, o.radar.z));
+  if (o.pylons) o.pylons.forEach(x => P('pylon', [Math.sign(x) * .3, -0.5, 0]).add(at(box(0.1, 0.3, 0.8, '#fb923c', {r: .5}), x, o.w.y - 0.2, o.w.z)));
+  // gear
+  const gr = o.gear;
+  [[0, gr.nz, gr.nr], [gr.mx, gr.mz, gr.mr], [-gr.mx, gr.mz, gr.mr]].forEach(([x, z, r]) => {
+    const g = P('gear', [x * 0.25, -0.6, 0]);
+    g.add(at(cyl(gr.lr, gr.lr, gr.h, '#9ca3af', {m: .8}, 10), x, gr.top - gr.h / 2, z), at(cyl(r, r, gr.w, '#111827', {r: .9}, 18), x, gr.top - gr.h - r * .2, z, 0, 0, Math.PI / 2));
+  });
+  // antennas
+  (o.ants || []).forEach(a => P('antenna', [0, 0.6, 0]).add(at(box(a.w, a.h, a.d, '#e5e7eb', {r: .4}), 0, a.y, a.z)));
+}
+
+/* =====================================================================
+   PER-DRONE BUILDERS (units = metres, front = +Z)
+   ===================================================================== */
+const BUILD = {
+ mini2() { buildMulti({
+   bw: .07, bh: .042, bd: .14, bodyCol: '#e5e7eb', stripe: '#f97316', shell: true,
+   motors: [[.1, .055], [-.1, .055], [.1, -.065], [-.1, -.065]], armY: .006, armT: .012, armW: .016, armCol: '#d1d5db',
+   mr: .011, mh: .016, motorCol: '#475569', propD: .13, blades: 2, propCol: '#94a3b8',
+   battery: {w: .04, h: .024, d: .09, col: '#334155', y: .002, z: -.005, ex: [0, .55, -.1]},
+   gps: {r: .008, h: .004, x: 0, y: .026, z: -.045},
+   gimbal: {s: .032, y: -.03, z: .075}, sensors: [{w: .02, h: .006, d: .004, x: 0, y: -.02, z: .06, zf: .002, ex: [0, -.3, .1]}],
+   fcY: .004, escY: -.008, antennas: [{x: -.02, y: .03, z: -.06, r: .002, h: .03}], k: 1
+ }); },
+ mavic3() { buildMulti({
+   bw: .1, bh: .06, bd: .22, bodyCol: '#9ca3af', stripe: '#1f2937', shell: true,
+   motors: [[.14, .12], [-.14, .12], [.13, -.12], [-.13, -.12]], armY: .008, armT: .018, armW: .024, armCol: '#6b7280',
+   mr: .016, mh: .024, motorCol: '#334155', propD: .2, blades: 2, propCol: '#cbd5e1',
+   battery: {w: .06, h: .04, d: .12, col: '#1e293b', y: .002, z: -.02, ex: [0, .5, -.2]},
+   gps: {r: .012, h: .005, x: 0, y: .038, z: -.07},
+   gimbal: {s: .055, y: -.045, z: .12, tele: true},
+   sensors: [{w: .04, h: .01, d: .006, x: .03, y: .004, z: .112, zf: .003}, {w: .04, h: .01, d: .006, x: -.03, y: .004, z: .112, zf: .003}, {w: .04, h: .01, d: .006, x: 0, y: .008, z: -.112, zf: -.003}, {w: .05, h: .006, d: .03, x: 0, y: -.032, z: -.02, ex: [0, -.4, 0]}],
+   fcY: .006, escY: -.012, antennas: [{x: .045, y: .02, z: -.11, r: .003, h: .05, rz: -.4}, {x: -.045, y: .02, z: -.11, r: .003, h: .05, rz: .4}], k: 1.5
+ }); },
+ phantom4() { const s = .1237; buildMulti({
+   bw: .2, bh: .1, bd: .24, bodyCol: '#f1f5f9', stripe: '#111827', shell: true,
+   motors: [[s, s], [-s, s], [s, -s], [-s, -s]], armY: .02, armT: .024, armW: .034, armCol: '#e2e8f0',
+   mr: .021, mh: .03, motorCol: '#111827', propD: .24, blades: 2, propCol: '#f8fafc',
+   battery: {w: .09, h: .06, d: .12, col: '#f59e0b', y: .015, z: -.03, ex: [0, .55, -.2]},
+   gps: {r: .02, h: .006, x: 0, y: .066, z: -.04},
+   gimbal: {s: .06, y: -.075, z: .13}, sensors: [{w: .04, h: .014, d: .008, x: .045, y: -.01, z: .125, zf: .004, ex: [0, 0, .5]}, {w: .04, h: .014, d: .008, x: -.045, y: -.01, z: .125, zf: .004, ex: [0, 0, .5]}, {w: .06, h: .006, d: .05, x: 0, y: -.055, z: -.05, ex: [0, -.4, 0]}],
+   fcY: .01, escY: -.02, gear: 'skids', gearY: -.12, gearL: .26, gearX: .1, gearH: .14, gearCol: '#f1f5f9', k: 1.8,
+   antennas: [{x: .08, y: .05, z: -.12, r: .004, h: .05}], leds: true
+ }); },
+ m300() { buildMulti({
+   bw: .28, bh: .12, bd: .3, bodyCol: '#1f2937', stripe: '#f97316', shell: false,
+   motors: [[.33, .36], [-.33, .36], [.33, -.36], [-.33, -.36]], armY: .02, armT: .045, armW: .055, armCol: '#374151',
+   mr: .04, mh: .05, motorCol: '#f97316', propD: .53, blades: 2, propCol: '#111827',
+   battery: {w: .07, h: .09, d: .2, col: '#facc15', x: .0, y: .02, z: .0, ex: [0, .6, -.2]},
+   gps: {r: .02, h: .008, x: .12, y: .1, z: -.15},
+   gimbal: {s: .11, y: -.13, z: .1}, sensors: [{w: .08, h: .03, d: .01, x: .1, y: .02, z: .15, zf: .006, ex: [0, 0, .5]}, {w: .08, h: .03, d: .01, x: -.1, y: .02, z: .15, zf: .006, ex: [0, 0, .5]}, {w: .08, h: .03, d: .01, x: 0, y: .02, z: -.152, zf: -.006}],
+   fcY: .02, escY: -.03, gear: 'skids', gearY: -.31, gearL: .5, gearX: .24, gearH: .33, gearCol: '#111827', k: 3,
+   antennas: [{x: -.12, y: .1, z: -.15, r: .006, h: .12}], extras() {
+     // second battery on the other side (same part key => highlights together)
+     inst.filter(g => g.userData.key === 'battery').forEach(g => { g.children[0].position.x = .075; g.add(at(box(.07, .09, .2, '#facc15', {r: .5, m: .2}), -.075, .02, 0)); });
+     inst.filter(g => g.userData.key === 'gps').forEach(g => g.add(at(cyl(.02, .02, .008, '#e5e7eb', {r: .3}), -.12, .1, -.15)));
+   }
+ }); },
+ fpv5() { const s = .0778; buildMulti({
+   bw: .06, bh: .02, bd: .13, bodyCol: '#1e293b', plates: true,
+   motors: [[s, s], [-s, s], [s, -s], [-s, -s]], armY: .0, armT: .005, armW: .022, armCol: '#0f172a',
+   mr: .014, mh: .02, motorCol: '#ef4444', propD: .127, blades: 3, propCol: '#22d3ee',
+   battery: {w: .036, h: .036, d: .09, col: '#fde047', y: .048, z: -.005, ex: [0, .6, -.1]},
+   gps: {r: .01, h: .004, x: 0, y: .018, z: -.07}, fpvCam: {s: .02, y: .005, z: .07},
+   fcY: -.004, escY: .004, antennas: [{x: 0, y: .025, z: -.075, r: .0015, h: .08, rx: -.6}], k: 1
+ }); },
+ mq9() { buildFixed({
+   bodyCol: '#9ca3af', wingCol: '#a8b0bb', tailCol: '#8b94a1', tipCol: '#dc2626',
+   pts: [[.02, -5.5], [.12, -5.2], [.2, -4.4], [.33, -3.2], [.48, -1.8], [.58, -.4], [.62, 1.2], [.62, 2.6], [.56, 3.6], [.44, 4.5]],
+   w: {x0: .5, len: 9.55, c0: 1.6, c1: .9, t0: .22, t1: .1, sw: .35, y: .2, z: .9, tip: true},
+   t: {x0: .12, len: 1.7, c0: 1.2, c1: .6, t0: .08, t1: .04, sw: .3, y: -.05, z: -4.6, dih: -.75},
+   e: {r: .33, len: 1.6, y: 0, z: -3.9},
+   prop: {z: -5.7, D: 2.4, blades: 4}, propCol: '#374151',
+   fuel: {r: .4, len: 2.6, z: .9, y: -.05}, av: {w: .7, h: .45, d: 1.0, z: 3.0},
+   sat: [at(sph(.46, '#d1d5db', {r: .3, ds: true}, 1, 1, 2.0), 0, .02, 4.55), at(cyl(.3, .3, .05, '#2dd4bf', {m: .7}, 24), 0, .0, 4.8, Math.PI / 2 - .1)],
+   turret: {r: .3, y: -.55, z: 3.9}, pylons: [2.3, 4.4, 6.6, -2.3, -4.4, -6.6],
+   gear: {nz: 3.3, nr: .16, mx: .55, mz: -1.7, mr: .22, lr: .04, h: .85, top: -.55, w: .12},
+   ants: [{w: .04, h: .5, d: .3, y: .8, z: -1.2}, {w: .04, h: .3, d: .25, y: -.7, z: 1.3}], stripe: {w: .9, d: 1.6, y: .63, z: 2.2, c: '#d1d5db'}
+ }); },
+ rq4() { buildFixed({
+   bodyCol: '#e5e7eb', wingCol: '#f1f5f9', tailCol: '#e2e8f0', tipCol: '#f97316',
+   pts: [[.03, -7.2], [.2, -6.5], [.3, -5], [.5, -3], [.68, -1], [.78, 1], [.8, 3], [.72, 5], [.5, 6.4], [.2, 7.1]],
+   w: {x0: .7, len: 19.25, c0: 2.5, c1: 1.0, t0: .35, t1: .12, sw: .6, y: .25, z: .4, tip: false},
+   t: {x0: .15, len: 2.8, c0: 1.8, c1: .8, t0: .1, t1: .05, sw: .8, y: .25, z: -6.3, dih: .72},
+   e: {nacelle: true, r: .55, len: 2.4, y: 1.15, z: -5.0, ex: [0, .7, -.3]},
+   fuel: {r: .6, len: 4, z: .3, y: 0}, av: {w: 1.0, h: .6, d: 1.4, z: 3.3},
+   sat: [at(sph(.55, '#f8fafc', {r: .3, ds: true}, 1, .85, 2.2), 0, .6, 4.6)],
+   turret: {r: .28, y: -.8, z: 4.4}, radar: {sx: .45, sy: .3, sz: 1.8, y: -.72, z: 2.2},
+   gear: {nz: 5.2, nr: .2, mx: .7, mz: -.6, mr: .28, lr: .05, h: .8, top: -.7, w: .14},
+   ants: [{w: .04, h: .4, d: .3, y: .9, z: 1.5}], stripe: {w: 1.0, d: 2, y: .79, z: 1, c: '#cbd5e1'}
+ }); },
+ tb2() { buildFixed({
+   bodyCol: '#e5e7eb', wingCol: '#f8fafc', tailCol: '#cbd5e1', tipCol: '#dc2626',
+   pts: [[.02, -3.25], [.08, -3.0], [.14, -2.4], [.2, -1.5], [.28, -.5], [.34, .6], [.36, 1.6], [.32, 2.5], [.18, 3.1], [.04, 3.25]],
+   w: {x0: .3, len: 5.7, c0: .85, c1: .55, t0: .12, t1: .06, sw: .15, y: .22, z: .2, tip: true},
+   t: {x0: .08, len: 1.0, c0: .7, c1: .4, t0: .06, t1: .03, sw: .2, y: -.02, z: -2.85, dih: -.75},
+   e: {r: .2, len: .7, y: 0, z: -2.3, ex: [0, .6, -.2]},
+   prop: {z: -3.35, D: 1.1, blades: 3}, propCol: '#111827',
+   fuel: {r: .22, len: 1.3, z: .4, y: -.02}, av: {w: .35, h: .25, d: .6, z: 1.9},
+   turret: {r: .17, y: -.36, z: 2.5},
+   gear: {nz: 2.2, nr: .08, mx: .35, mz: -.6, mr: .1, lr: .02, h: .38, top: -.3, w: .06},
+   ants: [{w: .02, h: .3, d: .2, y: .5, z: .8}], stripe: {w: .5, d: 1.2, y: .35, z: 1.2, c: '#dc2626'}
+ }); }
+};
+
+/* =====================================================================
+   STATE + APP LOGIC
+   ===================================================================== */
+const S = {drone: null, sel: null, exp: 0, expT: 0, fly: false, xray: false, fcol: false, human: false, night: false, t: 0, size: 1, mid: new THREE.Vector3(), human_g: null, camGoal: new THREE.Vector3(), flyA: 0};
+const fmtMass = kg => kg < 1 ? Math.round(kg * 1000) + ' g' : (kg < 100 ? kg.toFixed(2) : Math.round(kg).toLocaleString('en-IN')) + ' kg';
+
+function makeHuman() {
+  const g = new THREE.Group(), m = M('#fb923c', {r: .8});
+  g.add(at(cyl(.09, .09, .8, '#2563eb', {r: .8}, 12), -.1, .4, 0), at(cyl(.09, .09, .8, '#2563eb', {r: .8}, 12), .1, .4, 0));
+  g.add(at(cyl(.2, .17, .6, '#f97316', {r: .8}, 14), 0, 1.1, 0), at(sph(.12, '#fcd9b6', {r: .8}), 0, 1.55, 0));
+  g.add(at(cyl(.05, .05, .6, '#f97316', {r: .8}, 8), -.28, 1.1, 0), at(cyl(.05, .05, .6, '#f97316', {r: .8}, 8), .28, 1.1, 0));
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; }); return g;
+}
+
+function loadDrone(id) {
+  if (model) scene.remove(model);
+  D = DRONES.find(d => d.id === id); S.drone = D; S.sel = null; S.exp = S.expT = 0; S.fly = false; inst = []; spin = [];
+  model = new THREE.Group(); scene.add(model);
+  BUILD[id]();
+  // visual part colours / meta
+  const norm = Object.values(D.parts).reduce((a, p) => a + p.share, 0);
+  D._norm = norm;
+  const counts = {}; inst.forEach(g => { counts[g.userData.key] = (counts[g.userData.key] || 0) + 1; });
+  D._counts = counts;
+  inst.forEach(g => g.traverse(o => { if (o.isMesh && o.material.isMeshStandardMaterial) o.material.userData.kind = (D.parts[g.userData.key] || {}).kind; }));
+  // bounds + explode vectors
+  const box3 = new THREE.Box3().setFromObject(model), sz = new THREE.Vector3(); box3.getSize(sz);
+  S.size = Math.max(sz.x, sz.y, sz.z); const c = box3.getCenter(new THREE.Vector3());
+  const f = D.flat ? .3 : .75;
+  inst.forEach(g => {
+    const bc = new THREE.Box3().setFromObject(g).getCenter(new THREE.Vector3()), ex = g.userData.ex;
+    let v;
+    if (ex) v = new THREE.Vector3(...ex);
+    else { v = bc.clone().sub(c); if (v.length() < S.size * .06) v = new THREE.Vector3(0, .5, 0); else v.normalize().multiplyScalar(.6); v.y += .15; }
+    g.userData.exv = v.multiplyScalar(S.size * f); g.userData.home = bc;
+  });
+  model.position.y = -box3.min.y; S.mid.set(c.x, c.y - box3.min.y, c.z); S.baseY = -box3.min.y;
+  // ground size
+  const gs = S.size * 3; ground.scale.setScalar(gs); grid.scale.setScalar(gs / 2);
+  sun.position.set(S.size * 1.5, S.size * 2.5, S.size * 1.2); sun.target.position.set(0, 0, 0);
+  const sc = sun.shadow.camera; sc.left = -S.size * 1.6; sc.right = S.size * 1.6; sc.top = S.size * 1.6; sc.bottom = -S.size * 1.6; sc.near = .01; sc.far = S.size * 8; sc.updateProjectionMatrix();
+  // human
+  if (S.human_g) scene.remove(S.human_g);
+  S.human_g = makeHuman();
+  const hx = D.type === 'fixed' ? Math.max(1.3, sz.x * .04 + 1.5) : sz.x / 2 + .6;
+  S.human_g.position.set(hx, 0, D.type === 'fixed' ? 1.2 : 0); S.human_g.visible = S.human; scene.add(S.human_g);
+  // camera
+  controls.minDistance = S.size * .3; controls.maxDistance = S.size * 8;
+  camera.near = S.size * .005; camera.far = S.size * 50; camera.updateProjectionMatrix();
+  camera.position.set(S.mid.x + S.size * 1.0, S.mid.y + S.size * .65, S.mid.z + S.size * 1.5);
+  S.camGoal.copy(S.mid); controls.target.copy(S.mid);
+  refreshMats(); renderCards(); renderInfo(); renderPart(); setBtn();
+}
+
+/* ----- selection / materials ----- */
+function refreshMats() {
+  inst.forEach(g => {
+    const key = g.userData.key, hit = S.sel && key === S.sel, kind = (D.parts[key] || {}).kind;
+    g.traverse(o => {
+      if (!o.isMesh || !o.material.isMeshStandardMaterial) return;
+      const m = o.material;
+      if (S.fcol && KIND[m.userData.kind]) m.color.set(KIND[m.userData.kind].col); else m.color.copy(m.userData.orig);
+      let op = 1; if (S.xray && (kind === 'body' || kind === 'fuselage' || kind === 'wing' || kind === 'satcom')) op = .2;
+      if (S.sel && !hit) op = Math.min(op, .25);
+      m.transparent = op < 1; m.opacity = op; m.depthWrite = op >= .95;
+      m.emissive.setHex(hit ? 0xffb300 : 0x000000); m.emissiveIntensity = hit ? .6 : 0;
+    });
+  });
+}
+function selectPart(key) {
+  S.sel = key; if (key) { S.expT = Math.max(S.expT, .8); $('exp').value = S.expT; S.fly = false; setBtn(); } refreshMats(); renderPart(); syncExp();
+}
+function syncExp() { $('vexp').textContent = Math.round(S.expT * 100) + '%'; $('exp').value = S.expT; }
+
+/* ----- UI render ----- */
+function renderCards() {
+  $('cards').innerHTML = '';
+  const CC = {'Consumer': '#38bdf8', 'Pro / Industrial': '#f59e0b', 'Racing / FPV': '#f43f5e'};
+  DRONES.forEach(d => {
+    const c = CC[d.cat] || '#4ade80', b = document.createElement('button');
+    b.className = 'dc' + (d === D ? ' on' : ''); b.style.setProperty('--c', c);
+    b.innerHTML = '<i style="background:' + c + '">' + d.cat + '</i><b>' + d.name + '</b><span>' + (d.year.replace('First flight: ', '')) + '</span>';
+    b.onclick = () => loadDrone(d.id); $('cards').appendChild(b);
+  });
+}
+function renderInfo() {
+  let h = '<h3>' + D.name + '</h3><table>';
+  [['Banane wala', D.maker], ['Kahaan bana', D.place], ['Kab', D.year], ['Category', D.cat]].concat(D.specs).forEach(r => { h += '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td></tr>'; });
+  $('info').innerHTML = h + '</table><p class="story">' + D.story + '</p>';
+}
+function renderPart() {
+  const el = $('part');
+  if (!S.sel) { el.innerHTML = '<h3>Part ki jaankari</h3><div class="ph">Drone ke kisi bhi part pe tap/click karo. Drone khul jayega (exploded view) aur yahan us part ka naam, kaam, weight aur theory dikhegi.</div>'; return; }
+  const p = D.parts[S.sel], k = KIND[p.kind], n = D._counts[S.sel] || 1;
+  let wt;
+  if (p.share === 0) wt = p.wnote || '—';
+  else { const tot = p.share / D._norm * D.mass; wt = '≈ ' + fmtMass(tot / n) + (n > 1 ? ' har ek (' + n + ' piece, total ≈ ' + fmtMass(tot) + ')' : ''); }
+  el.innerHTML = '<h3>Part ki jaankari</h3><div class="nm">' + p.name + (n > 1 ? ' ×' + n : '') + '</div>' +
+    '<span class="chip" style="background:' + k.col + '">' + k.n + '</span>' +
+    '<div class="k">Kya kaam karta hai</div><div class="v">' + k.fn + '</div>' +
+    '<div class="k">Weight (estimated, ' + D.massLbl + ' ka share)</div><div class="v">' + wt + '</div>' +
+    '<div class="k">Material</div><div class="v">' + k.mat + '</div>' +
+    '<div class="k">Theory / Formula</div><span class="f">' + k.th.replace(/\n/g, '<br>') + '</span>' +
+    (p.note ? '<div class="k">Is drone me</div><div class="v">' + p.note + '</div>' : '') +
+    '<div style="margin-top:10px"><button class="tb" id="bDesel">✕ Select hatao</button></div>';
+  $('bDesel').onclick = () => { S.sel = null; refreshMats(); renderPart(); };
+}
+function setBtn() { $('bFly').classList.toggle('on', S.fly); $('bFly').textContent = S.fly ? '■ Utaro' : '▶ Fly'; $('bX').classList.toggle('on', S.xray); $('bC').classList.toggle('on', S.fcol); $('bH').classList.toggle('on', S.human); $('bN').classList.toggle('on', S.night); }
+
+/* ----- controls ----- */
+$('thr').oninput = e => { $('vthr').textContent = Math.round(e.target.value * 100) + '%'; };
+$('wind').oninput = e => { $('vwind').textContent = (+e.target.value).toFixed(1); };
+$('exp').oninput = e => { S.expT = +e.target.value; if (S.expT > .02) S.fly = false; syncExp(); setBtn(); };
+$('bFly').onclick = () => { S.fly = !S.fly; if (S.fly) { S.expT = 0; syncExp(); S.sel = null; refreshMats(); renderPart(); } setBtn(); };
+$('bX').onclick = () => { S.xray = !S.xray; setBtn(); refreshMats(); };
+$('bC').onclick = () => { S.fcol = !S.fcol; setBtn(); refreshMats(); };
+$('bH').onclick = () => { S.human = !S.human; if (S.human_g) S.human_g.visible = S.human; setBtn(); };
+$('bN').onclick = () => { S.night = !S.night; setBtn(); };
+$('bA').onclick = () => { S.expT = 0; S.sel = null; syncExp(); refreshMats(); renderPart(); };
+
+/* ----- click picking ----- */
+const ray = new THREE.Raycaster(), ptr = new THREE.Vector2(); let down = null;
+renderer.domElement.addEventListener('pointerdown', e => { down = {x: e.clientX, y: e.clientY}; });
+function pick(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  ptr.set((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ptr, camera);
+  const hits = ray.intersectObjects(inst, true);
+  for (const h of hits) {
+    let o = h.object; while (o && !(o.userData && o.userData.key)) o = o.parent;
+    if (!o) continue;
+    const kind = (D.parts[o.userData.key] || {}).kind;
+    if (S.xray && (kind === 'body' || kind === 'fuselage' || kind === 'wing' || kind === 'satcom')) continue; // x-ray: shell ke andar ke parts chuno
+    return o;
+  }
+  return null;
+}
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) return; down = null;
+  const o = pick(e); if (o) { selectPart(o.userData.key); const bc = o.userData.home.clone(); bc.add(o.userData.exv.clone().multiplyScalar(S.expT)); bc.y += S.baseY; S.camGoal.copy(bc); }
+  else { S.sel = null; S.camGoal.copy(S.mid); refreshMats(); renderPart(); }
+});
+renderer.domElement.addEventListener('pointermove', e => { if (e.buttons) return; renderer.domElement.style.cursor = pick(e) ? 'pointer' : 'grab'; });
+
+/* ----- animation loop ----- */
+const clock = new THREE.Clock(), nightBg = new THREE.Color(0x050814), dayBg = new THREE.Color(0x6f95cc), tmp = new THREE.Vector3();
+function frame() {
+  requestAnimationFrame(frame);
+  const dt = Math.min(clock.getDelta(), .05); S.t += dt;
+  const thr = +$('thr').value, wind = +$('wind').value;
+  // explode
+  S.exp += (S.expT - S.exp) * Math.min(1, dt * 6);
+  inst.forEach(g => { g.position.copy(g.userData.exv).multiplyScalar(S.exp); });
+  // props
+  const spd = (S.fly ? Math.max(thr, .5) : thr) * 60;
+  spin.forEach(s => { s.rot.rotation[s.axis] += s.dir * spd * s.rpm * dt * (D.type === 'fixed' ? .6 : 1); s.disc.material.opacity = Math.min(.22, .02 + thr * .2) * (spd > 15 ? 1 : spd / 15); });
+  // fly
+  if (S.fly) {
+    S.flyA += dt;
+    if (D.type === 'multi') {
+      const h = S.size * .9 + Math.sin(S.t * 1.3) * .03 * S.size * wind;
+      model.position.set(Math.sin(S.t * .7) * S.size * .15 * wind, S.baseY + h, Math.cos(S.t * .5) * S.size * .15 * wind);
+      model.rotation.set(Math.sin(S.t * 1.1) * .1 * (.3 + wind) + .06 * thr, 0, Math.cos(S.t * .9) * .1 * (.3 + wind));
+    } else {
+      const R = S.size * 1.4, a = S.flyA * .35;
+      model.position.set(Math.cos(a) * R, S.baseY + S.size * .5, Math.sin(a) * R);
+      model.rotation.set(0, -a, 0, 'YXZ'); model.rotation.y = -a + Math.PI; model.rotation.z = -.28 - Math.sin(S.t) * .04 * wind;
+    }
+    S.camGoal.copy(model.position);
+  } else {
+    model.position.set(0, S.baseY, 0); model.rotation.set(0, 0, 0);
+  }
+  controls.target.lerp(S.camGoal, Math.min(1, dt * 4));
+  controls.update();
+  // day / night
+  const nb = S.night; scene.background = (scene.background && scene.background.isColor ? scene.background : new THREE.Color()).lerp(nb ? nightBg : dayBg, Math.min(1, dt * 3));
+  hemi.intensity += ((nb ? .35 : 1) - hemi.intensity) * Math.min(1, dt * 3); sun.intensity += ((nb ? .5 : 2.2) - sun.intensity) * Math.min(1, dt * 3);
+  ground.material.color.set(nb ? 0x0e1630 : 0x2f4670);
+  // HUD
+  const W = D.mass * 9.81;
+  let hud = D.name + '\n' + (D.mass < 1 ? Math.round(D.mass * 1000) + ' g' : fmtMass(D.mass)) + ' (' + D.massLbl.split(' (')[0] + ')\n' + 'Weight force  ' + W.toFixed(W < 100 ? 1 : 0) + ' N';
+  if (D.type === 'multi') hud += '\nHover thrust  ' + (W / D.rotors).toFixed(W < 100 ? 1 : 0) + ' N / motor (ideal)';
+  else hud += '\nLift = ½ρv²S·CL  (wing se)';
+  hud += '\nMode          ' + (S.fly ? 'FLYING' : S.expT > .05 ? 'EXPLODED' : 'PARKED');
+  $('hud').textContent = hud;
+  renderer.render(scene, camera);
+}
+$('hint').style.opacity = 1; setTimeout(() => { $('hint').style.opacity = 0; }, 7000);
+loadDrone('mavic3');
+requestAnimationFrame(() => { resize(); });
+new ResizeObserver(resize).observe(stage);
+frame();
+</script>
+</body>
+</html>
