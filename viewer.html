@@ -43,7 +43,7 @@ function show(obj){
   floor.position.y=0;cam.position.set(7,5,9);ctl.target.set(0,sz.y*base/2,0);$('msg').textContent=sz.x.toFixed(2)+' x '+sz.y.toFixed(2)+' x '+sz.z.toFixed(2)+' (model units)';
 }
 const L=new GLTFLoader();
-const load=n=>{$('msg').textContent='loading...';L.load('models/'+n+'.glb',g=>show(g.scene),undefined,()=>{$('msg').textContent='models/'+n+'.glb nahi mili (viewer.html aur models/ same folder me rakho)'})};
+const load=n=>{$('msg').textContent='loading...';L.load(n+'.glb',g=>show(g.scene),undefined,()=>{$('msg').textContent='models/'+n+'.glb nahi mili (viewer.html aur models/ same folder me rakho)'})};
 $('m').onchange=e=>load(e.target.value);load('drone_quad');
 $('f').onchange=async e=>{const f=e.target.files[0];if(!f)return;L.parse(await f.arrayBuffer(),'',g=>show(g.scene),er=>$('msg').textContent='File padh nahi payi: '+er.message)};
 $('s').oninput=e=>{$('vs').textContent=e.target.value;if(cur)cur.scale.setScalar(base*e.target.value)};
