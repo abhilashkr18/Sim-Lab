@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sim Lab - 3D Model Viewer</title>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:#0b1020;color:#fff;font-family:system-ui,sans-serif}
+#ui{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.6);padding:8px 10px;border-radius:8px;font-size:12px;width:200px}
+#ui select,#ui input[type=range],#ui input[type=file]{width:100%;margin-top:4px}
+#ui label{display:block;margin-top:6px}
+#msg{position:absolute;bottom:8px;left:8px;font:12px monospace;background:rgba(0,0,0,.6);padding:5px 9px;border-radius:6px}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+</head><body>
+<div id="ui"><b>🧩 3D Model Viewer</b>
+<label>Model<select id="m"></select></label>
+<label>Ya apni .glb file<input id="f" type="file" accept=".glb,.gltf"></label>
+<label>Auto-rotate<input id="rot" type="checkbox" checked></label>
+<label>Night<input id="night" type="checkbox"></label>
+<label>Scale: <span id="vs">1</span>x<input id="s" type="range" min="0.2" max="4" step="0.1" value="1"></label>
+</div><div id="msg">loading...</div>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+const $=id=>document.getElementById(id);
+const MODELS={"Drone (quad)":"drone_quad","Drone (hexa)":"drone_hexa","Car":"car","Tower building":"tower_building","House":"house","Tree":"tree","Wind turbine":"wind_turbine","Robot arm":"robot_arm","Airplane":"airplane"};
+for(const k in MODELS){const o=document.createElement('option');o.value=MODELS[k];o.textContent=k;$('m').appendChild(o);}
+const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.01,2000);
+const r=new THREE.WebGLRenderer({antialias:true});r.setSize(innerWidth,innerHeight);r.setPixelRatio(Math.min(devicePixelRatio,2));r.shadowMap.enabled=true;document.body.appendChild(r.domElement);
+const ctl=new OrbitControls(cam,r.domElement);ctl.enableDamping=true;
+addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();r.setSize(innerWidth,innerHeight)});
+const hemi=new THREE.HemisphereLight(0xcfe6ff,0x445566,1);const sun=new THREE.DirectionalLight(0xfff1d6,2.5);sun.position.set(5,10,6);sun.castShadow=true;scene.add(hemi,sun);
+const floor=new THREE.Mesh(new THREE.CircleGeometry(200,64),new THREE.MeshStandardMaterial({color:0x2c3e50,roughness:1}));floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor);
+const grid=new THREE.GridHelper(40,40,0x4a6fa5,0x2b3d5c);scene.add(grid);
+const sky=(n)=>{scene.background=new THREE.Color(n?0x050814:0x87a7d6);hemi.intensity=n?.3:1;sun.intensity=n?.5:2.5};sky(false);
+$('night').onchange=e=>sky(e.target.checked);
+let cur=null,base=1;
+function show(obj){
+  if(cur)scene.remove(cur);cur=new THREE.Group();cur.add(obj);scene.add(cur);
+  obj.traverse(o=>{if(o.isMesh){o.castShadow=true}});
+  const b=new THREE.Box3().setFromObject(obj),c=b.getCenter(new THREE.Vector3()),sz=b.getSize(new THREE.Vector3());
+  obj.position.sub(c);obj.position.y+=sz.y/2;cur.position.y=0;
+  base=5/Math.max(sz.x,sz.y,sz.z);cur.scale.setScalar(base*$('s').value);
+  floor.position.y=0;cam.position.set(7,5,9);ctl.target.set(0,sz.y*base/2,0);$('msg').textContent=sz.x.toFixed(2)+' x '+sz.y.toFixed(2)+' x '+sz.z.toFixed(2)+' (model units)';
+}
+const L=new GLTFLoader();
+const load=n=>{$('msg').textContent='loading...';L.load('models/'+n+'.glb',g=>show(g.scene),undefined,()=>{$('msg').textContent='models/'+n+'.glb nahi mili (viewer.html aur models/ same folder me rakho)'})};
+$('m').onchange=e=>load(e.target.value);load('drone_quad');
+$('f').onchange=async e=>{const f=e.target.files[0];if(!f)return;L.parse(await f.arrayBuffer(),'',g=>show(g.scene),er=>$('msg').textContent='File padh nahi payi: '+er.message)};
+$('s').oninput=e=>{$('vs').textContent=e.target.value;if(cur)cur.scale.setScalar(base*e.target.value)};
+(function loop(){requestAnimationFrame(loop);if($('rot').checked&&cur)cur.rotation.y+=.006;ctl.update();r.render(scene,cam)})();
+</script></body></html>
