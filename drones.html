@@ -116,7 +116,15 @@ const KIND = {
   satcom:  {col:'#2dd4bf', n:'SATCOM Dome',       fn:'Satellite se jodta hai taki drone ko bahut door se (beyond line of sight) control kiya ja sake.', mat:'Radome (RF-transparent composite) + steerable dish', th:'Dish gain G ≈ η·(πD/λ)². Bada dish = narrow beam = zyada data.\nGeostationary satellite ~36,000 km door, isliye ~0.25 s delay aati hai.'},
   turret:  {col:'#60a5fa', n:'EO/IR Sensor Turret', fn:'Din me camera aur raat me thermal (infrared) camera se zameen dekhta hai.', mat:'Gimbal + optics (germanium/sapphire window)', th:'Thermal camera 8–14 µm infrared padhta hai: garam cheez zyada radiate karti hai (Stefan–Boltzmann: P ∝ T⁴).\nGimbal line-of-sight ko stabilize karta hai.'},
   radar:   {col:'#a78bfa', n:'SAR Radar',         fn:'Radar se badal/raat me bhi zameen ki tasveer banata hai.', mat:'Phased/array antenna + radome', th:'Synthetic Aperture Radar: drone ki movement se ek "lamba virtual antenna" banta hai.\nResolution ≈ L_antenna / 2 (range par nirbhar nahi).'},
-  pylon:   {col:'#fb923c', n:'Payload Pylon',     fn:'Wing ke neeche sensors ya extra tank lagane ki jagah.', mat:'Aluminium/composite hardpoint', th:'Hardpoint par aane wala load wing spar se share hota hai.\nExternal store lagane se drag badhti hai aur endurance ghatti hai.'}
+  pylon:   {col:'#fb923c', n:'Payload Pylon',     fn:'Wing ke neeche sensors ya extra tank lagane ki jagah.', mat:'Aluminium/composite hardpoint', th:'Hardpoint par aane wala load wing spar se share hota hai.\nExternal store lagane se drag badhti hai aur endurance ghatti hai.'},
+  /* --- FPV-specific parts --- */
+  wire:    {col:'#e879f9', n:'Motor Wires (3-phase)', fn:'ESC ke teen output pads ko motor ke teen coil-leads se jodte hain. Har motor ke 3 wires hote hain.', mat:'Silicone-insulated stranded copper (≈20–22 AWG)', th:'BLDC motor 3-phase hota hai. Koi bhi 2 wires swap karo to motor ulta ghumta hai (ya ESC software se bhi badal sakte hain).\nWire me power loss P = I²·R: patla/lamba wire = zyada garmi aur voltage drop.'},
+  cage:    {col:'#84cc16', n:'Camera Cage / Bracket', fn:'FPV camera ko pakad ke rakhta hai, crash se bachata hai aur tilt angle set karne deta hai.', mat:'Carbon fibre plate, TPU ya aluminium', th:'Tez udte waqt drone aage jhukta hai, isliye camera ko 20–40° upar tilt karte hain taaki saamne ka view mile.\nTilt ≈ forward lean angle ke barabar rakhne se image seedha dikhta hai.'},
+  mount:   {col:'#fdba74', n:'TPU Camera Mount',  fn:'Action camera ko frame ke upar fix karta hai aur tilt adjust karne deta hai.', mat:'3D-printed TPU (flexible plastic)', th:'TPU flexible hai (Shore ≈ 95A): crash energy ½·m·v² ka kuch hissa mount ke deform hone me absorb ho jata hai.\nCamera upar rakhne se centre of gravity (CG) thoda upar shift hota hai.'},
+  vtx:     {col:'#8b5cf6', n:'Video Transmitter (VTX)', fn:'FPV camera ka video 5.8 GHz radio par goggles ko bhejta hai.', mat:'PCB + RF amplifier + aluminium heatsink', th:'Output power 25–800 mW typical. Free-space range ∝ √(power): power 4x = range sirf 2x.\nAntenna ke bina power on karne par RF energy wapas amplifier me lauti hai aur wo jal sakta hai.'},
+  rx:      {col:'#0d9488', n:'Control Receiver (RX)', fn:'Pilot ke radio controller (transmitter) se stick commands radio se leke flight controller ko deta hai.', mat:'PCB + RF chip (2.4 GHz / 915 MHz)', th:'Link packet rate 50–1000 Hz. Failsafe: link toot jaye to motors band ya Return-to-Home.\nCarbon fibre radio signal rokta hai, isliye antenna ko carbon se door rakhte hain.'},
+  cap:     {col:'#fda4af', n:'Power Capacitor (low-ESR)', fn:'Battery line ke voltage spikes aur noise ko smooth karta hai taaki camera, VTX aur FC safe rahein.', mat:'Electrolytic capacitor (aluminium can)', th:'Charge Q = C·V. Motors ka tez ON/OFF switching voltage spike banata hai (V = L·di/dt).\nTypical 470–1000 µF, ≥35 V (6S full = 25.2 V). Capacitor jitna battery-pads ke paas, utna acha.'},
+  conn:    {col:'#fde047', n:'Battery Connector (XT60)', fn:'Battery se drone ko high current pahunchata hai aur battery ko jaldi nikalne/lagane deta hai.', mat:'Nylon housing + gold-plated brass pins', th:'Contact resistance chhoti hoti hai par P = I²·R phir bhi garmi deta hai. XT60 ka rating lagbhag 60 A hota hai; 5" quad me burst current isse zyada ja sakta hai.\nSolder joint kamzor ho to connector pighal sakta hai.'}
 };
 
 /* =====================================================================
@@ -143,11 +151,31 @@ const DRONES = [
   specs:[['Weight','~6.3 kg (2 batteries, bina payload)'],['Max takeoff','9 kg'],['Unfolded size','810 × 670 × 430 mm (props ke bina)'],['Flight time','~55 min (no payload)'],['Max speed','23 m/s (~83 km/h)'],['Protection','IP45'],['Ceiling','5,000 m (sea level se)'],['Use','Inspection, mapping, public safety']],
   story:'Enterprise drone: dual batteries (hot-swap), RTK GPS se cm-level position aur kai payloads (thermal, zoom, LiDAR) lagte hain. Power line, bridge aur search-and-rescue me use hota hai.',
   parts:{body:{kind:'body',name:'Main fuselage',share:.2},arm:{kind:'arm',name:'Folding arm',share:.1},motor:{kind:'motor',name:'Motor',share:.1},prop:{kind:'prop',name:'21-inch propeller',share:.03},battery:{kind:'battery',name:'Flight battery (TB60 class)',share:.22,note:'Do batteries hain (redundancy).'},fc:{kind:'fc',name:'Flight controller',share:.03},esc:{kind:'esc',name:'ESC',share:.04},gps:{kind:'gps',name:'RTK GNSS antenna',share:.02,note:'RTK = cm-level accuracy.'},gimbal:{kind:'gimbal',name:'Payload gimbal mount',share:.05},camera:{kind:'camera',name:'Payload camera (optional)',share:0,wnote:'Optional payload, base weight me shamil nahi'},sensor:{kind:'sensor',name:'Obstacle sensor',share:.03},gear:{kind:'gear',name:'Landing skid',share:.08},led:{kind:'led',name:'LED',share:.005},antenna:{kind:'antenna',name:'Antenna',share:.02}}},
- {id:'fpv5', name:'FPV 5" Freestyle (generic)', cat:'Racing / FPV', type:'multi', mass:0.68, massLbl:'typical total (6S battery ke saath)',
-  maker:'Hobby builds (kai brands)', place:'Class, koi ek company nahi', year:'~2015 se popular', rotors:4,
-  specs:[['Weight','~600-750 g typical'],['Frame','5" carbon, ~220 mm wheelbase'],['Motors','~2306, ~1750 KV (typical)'],['Battery','6S LiPo, ~1300 mAh'],['Speed','100+ km/h (140+ possible)'],['Flight time','~3-5 min'],['Thrust-to-weight','>6:1 (typical)'],['Control','Acro/rate mode, goggles se FPV']],
-  story:'FPV drones pilot ko goggles se camera ki aankh se udate hain. Gimbal/GPS nahi hota, isliye bahut fast aur agile hote hain. Ye ek generic design hai, kisi ek company ka model nahi.',
-  parts:{body:{kind:'body',name:'Carbon plates + standoffs',share:.1},arm:{kind:'arm',name:'Carbon arm',share:.12},motor:{kind:'motor',name:'Motor (2306 class)',share:.22},prop:{kind:'prop',name:'5-inch tri-blade prop',share:.03},battery:{kind:'battery',name:'6S LiPo battery',share:.32,note:'Zyada current deta hai (high C-rating).'},fc:{kind:'fc',name:'Flight controller',share:.03},esc:{kind:'esc',name:'4-in-1 ESC',share:.06},gps:{kind:'gps',name:'GPS module',share:.01},camera:{kind:'camera',name:'FPV camera',share:.02},led:{kind:'led',name:'LED strip',share:.005},antenna:{kind:'antenna',name:'Video antenna',share:.02}}},
+ {id:'fpv5', name:'FPV 5" Racing / Freestyle (detailed)', cat:'Racing / FPV', type:'multi', mass:0.677, massLbl:'typical total (6S battery + action cam)',
+  maker:'Hobby builds (kai brands) - generic design', place:'Class, koi ek company nahi', year:'~2015 se popular', rotors:4,
+  specs:[['Weight','~600-750 g (6S + action cam)'],['Wheelbase','~220 mm (5" class)'],['Frame','True-X carbon, 4-5 mm arms'],['Motors','2306, ~1750 KV (typical)'],['Props','5" (127 mm) tri-blade'],['ESC','4-in-1, ~45 A (typical)'],['Flight controller','F4/F7/H7 MCU + gyro (Betaflight)'],['Radio link','2.4 GHz receiver (ELRS-type)'],['Video','5.8 GHz VTX + micro FPV camera'],['Battery','6S LiPo ~1300 mAh (22.2 V, ~29 Wh)'],['Speed','100+ km/h (140+ possible)'],['Flight time','~3-5 min'],['Thrust-to-weight','>6:1 (typical)']],
+  story:'FPV drone me pilot goggles se drone ke camera ki aankh se udata hai. GPS/gimbal nahi hota, isliye bahut fast aur agile hota hai. Ye model aapke labelled diagram ("Main Drone Components") ke parts par based hai, par poora 3D mera khud ka banaya hai, kisi ki image ya model copy nahi. Note: blueprint me 5" prop ke saath 132 mm wheelbase likha tha jo real 5" class se match nahi karta, isliye yahan real ~220 mm rakha hai. Weights estimated hain (parts ke typical grams).',
+  parts:{
+   body:{kind:'body',name:'Bottom plate + standoffs',share:50,note:'3-4 mm carbon plate; arms iske upar-neeche bolt hote hain. Aluminium standoffs top plate ko jodte hain aur FC/ESC stack ko pakadte hain.'},
+   top:{kind:'body',name:'Top plate (rails)',share:14,note:'Stack ko upar se dabata hai aur camera mount ke screw yahin lagte hain. Khula design = stack ko thanda aur dikhne laayak rakhta hai.'},
+   arm:{kind:'arm',name:'Carbon arm',share:58,note:'True-X shape, 4-5 mm thick plate. Crash me sabse pehle arm tootta hai, isliye spare rakhte hain.'},
+   motor:{kind:'motor',name:'Motor (2306 class)',share:128,note:'2306 = stator 23 mm wide, 6 mm tall. ~1750 KV x 22.2 V (6S) ≈ 38,850 rpm (no load). Motor number (Betaflight): 1 = rear-right, 2 = front-right, 3 = rear-left, 4 = front-left; props alternate directions me ghumte hain.'},
+   prop:{kind:'prop',name:'5-inch tri-blade propeller',share:18,note:'Tri-blade = zyada grip aur thrust par zyada current. Yaw aur punch-out control tez hota hai.'},
+   wires:{kind:'wire',name:'Motor wires (3 per motor)',share:10,note:'Red/yellow/black sirf pehchan ke liye hain. Pilot flight me neeche ya arm ke upar se route karte hain taaki prop se na kate.'},
+   esc:{kind:'esc',name:'4-in-1 ESC',share:25,note:'4 ESC ek hi board par. 30.5 x 30.5 mm mounting. Battery se seedha power leta hai (6S ≈ 25 V full).'},
+   fc:{kind:'fc',name:'Flight controller (FC)',share:10,note:'Gyro + MCU. Betaflight jaisa firmware ~4-8 kHz par PID loop chalata hai. Stack me ESC ke upar baithta hai.'},
+   vtx:{kind:'vtx',name:'Video transmitter (VTX)',share:12,note:'Stack ke sabse upar, heatsink ke saath. Camera video ko goggles tak bhejta hai.'},
+   battery:{kind:'battery',name:'6S LiPo battery',share:205,note:'6S 1300 mAh ≈ 22.2 V x 1.3 Ah ≈ 29 Wh. Sabse bhaari part. Neeche strap se bandha hota hai; XT60 se jura.'},
+   camera:{kind:'camera',name:'Micro FPV camera',share:8,note:'Low-latency camera jo seedha VTX ko video deta hai. Ek chhota PCB aur lens module.'},
+   cage:{kind:'cage',name:'Camera cage',share:4,note:'Do side plates + bars. Tilt angle yahin se set hota hai (typical 20-40°).'},
+   mount:{kind:'mount',name:'TPU mount (action camera)',share:14,note:'Orange TPU print: action camera ko upar frame par pakadta hai, tilt adjustable.'},
+   action:{kind:'camera',name:'Action camera (generic)',share:95,note:'Alag HD recording ke liye (FPV camera ki quality kam hoti hai). Naked/lite versions halke hote hain. Ye ek generic dummy model hai, kisi brand ka nahi.'},
+   xt60:{kind:'conn',name:'XT60 battery connector',share:9,note:'Peeche ki taraf, battery ki wires solder hoti hain. Reverse polarity se bachao ke liye pins ka size alag hota hai.'},
+   cap:{kind:'cap',name:'Power capacitor',share:4,note:'XT60 ke paas battery pads par laga rehta hai, voltage spike ko soakh leta hai.'},
+   rx:{kind:'rx',name:'Control receiver (RX)',share:3,note:'Peeche ke hisse me, antenna ko carbon aur motor wires se door rakhte hain.'},
+   rxant:{kind:'antenna',name:'RX antenna',share:2,note:'Do antennas (diversity) ya ek T-antenna. Sirf tube ka aakhri hissa radiate karta hai.'},
+   vtxant:{kind:'antenna',name:'Video antenna (mushroom)',share:6,note:'Circular-polarised antenna. Goggles ki antenna se polarisation (RHCP/LHCP) match honi chahiye.'}
+  }},
  {id:'mq9', name:'MQ-9 Reaper', cat:'Military (fixed-wing)', type:'fixed', mass:2223, massLbl:'empty weight', flat:true,
   maker:'General Atomics Aeronautical Systems', place:'Poway, California, USA', year:'First flight: 2 Feb 2001', rotors:1,
   specs:[['Wingspan','20.1 m'],['Length','11 m'],['Height','3.8 m'],['Empty weight','2,223 kg'],['Max takeoff','4,760 kg'],['Engine','Honeywell TPE331-10GD turboprop, 900 shp'],['Max speed','~480 km/h'],['Endurance','~27-30 h (ISR config)'],['Payload','up to ~1,700 kg, 6 pylons']],
@@ -197,7 +225,31 @@ const grid = new THREE.GridHelper(2, 20, 0x4a6fa5, 0x2b3d5c); scene.add(grid);
 let model = null, inst = [], spin = [], D = null;
 const M = (c, o = {}) => {
   const m = new THREE.MeshStandardMaterial({color: c, roughness: o.r ?? 0.5, metalness: o.m ?? 0.2, side: o.ds ? THREE.DoubleSide : THREE.FrontSide});
+  if (o.map) m.map = o.map;
   m.userData.orig = new THREE.Color(c); return m;
+};
+/* carbon-fibre weave texture (drawn on a canvas, no image files needed) */
+let _carbon = null;
+function carbon(rx, ry) {
+  try {
+    if (!_carbon) {
+      const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+      for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) {
+        g.fillStyle = (i + j) % 2 ? '#3a414d' : '#1a1e25'; g.fillRect(i * 8, j * 8, 8, 8);
+        g.fillStyle = 'rgba(255,255,255,.10)'; g.fillRect(i * 8, j * 8, 8, 1.5);
+      }
+      _carbon = new THREE.CanvasTexture(c); _carbon.wrapS = _carbon.wrapT = THREE.RepeatWrapping; _carbon.colorSpace = THREE.SRGBColorSpace;
+    }
+    const t = _carbon.clone(); t.needsUpdate = true; t.repeat.set(rx, ry); return {map: t};
+  } catch (e) { return {}; }
+}
+/* thin cylinder between two points (wires, antennas) */
+const rod = (a, b, r, c, o, seg = 8) => {
+  const p0 = new THREE.Vector3(a[0], a[1], a[2]), p1 = new THREE.Vector3(b[0], b[1], b[2]), d = p1.clone().sub(p0), len = d.length();
+  const m = cyl(r, r, len, c, o, seg);
+  m.position.copy(p0).add(p1).multiplyScalar(.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize());
+  return m;
 };
 const mesh = (geo, c, o) => { const m = new THREE.Mesh(geo, M(c, o)); m.castShadow = true; m.receiveShadow = true; return m; };
 const at = (o, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => { o.position.set(x, y, z); o.rotation.set(rx, ry, rz); return o; };
@@ -388,14 +440,102 @@ const BUILD = {
      inst.filter(g => g.userData.key === 'gps').forEach(g => g.add(at(cyl(.02, .02, .008, '#e5e7eb', {r: .3}), -.12, .1, -.15)));
    }
  }); },
- fpv5() { const s = .0778; buildMulti({
-   bw: .06, bh: .02, bd: .13, bodyCol: '#1e293b', plates: true,
-   motors: [[s, s], [-s, s], [s, -s], [-s, -s]], armY: .0, armT: .005, armW: .022, armCol: '#0f172a',
-   mr: .014, mh: .02, motorCol: '#ef4444', propD: .127, blades: 3, propCol: '#22d3ee',
-   battery: {w: .036, h: .036, d: .09, col: '#fde047', y: .048, z: -.005, ex: [0, .6, -.1]},
-   gps: {r: .01, h: .004, x: 0, y: .018, z: -.07}, fpvCam: {s: .02, y: .005, z: .07},
-   fcY: -.004, escY: .004, antennas: [{x: 0, y: .025, z: -.075, r: .0015, h: .08, rx: -.6}], k: 1
- }); },
+ fpv5() {
+  /* Detailed 5" FPV quad. Units = metres, front = +Z, up = +Y. True-X: motors at (+-s, +-s), diagonal 220 mm. */
+  const s = .0778, aT = .005, y0 = aT / 2, CF = '#cbd2dc';
+  const cf = (a, b, extra) => Object.assign({r: .45, m: .25}, carbon(a, b), extra || {});
+  const metal = '#cbd5e1';
+  const dirs = [[1, 1], [1, -1], [-1, 1], [-1, -1]]; // FR, RR, FL, RL
+  // ---- frame: bottom plate + standoffs
+  const body = P('body', [0, .22, 0]);
+  body.add(at(box(.046, .0032, .136, CF, cf(3, 6)), 0, 0, 0));
+  [[1, 1], [1, -1], [-1, 1], [-1, -1]].forEach(([a, b]) => body.add(at(cyl(.0025, .0025, .0466, metal, {m: .85, r: .3}, 10), a * .01525, .0217, b * .01525)));
+  [-1, 1].forEach(a => body.add(at(cyl(.0025, .0025, .0466, metal, {m: .85, r: .3}, 10), a * .0165, .0217, .044), at(cyl(.0025, .0025, .0466, metal, {m: .85, r: .3}, 10), a * .0165, .0217, -.0265)));
+  // ---- top plate (open rails)
+  const top = P('top', [0, .8, 0]);
+  [-1, 1].forEach(a => top.add(at(box(.009, .0032, .08, CF, cf(1, 4)), a * .0165, .0434, .01)));
+  top.add(at(box(.044, .0032, .007, CF, cf(3, 1)), 0, .0434, .0465), at(box(.044, .0032, .007, CF, cf(3, 1)), 0, .0434, -.0265));
+  [-1, 1].forEach(a => [.044, -.0265, .01525, -.01525].forEach(z => top.add(at(cyl(.0034, .0034, .0012, '#9ca3af', {m: .9, r: .25}, 12), a * (Math.abs(z) < .02 ? .01525 : .0165), .0462, z))));
+  // ---- arms, motors, props, wires (4x each)
+  dirs.forEach(([a, b], i) => {
+    const x = a * s, z = b * s, L = Math.hypot(x, z), ux = x / L, uz = z / L, ang = -Math.atan2(z, x), q = .7071;
+    const r0 = .018, len = L - r0, mid = (L + r0) / 2;
+    const arm = P('arm', [a * q * .45, .25, b * q * .45]);
+    arm.add(at(box(len, aT, .018, CF, cf(4, 1)), ux * mid, 0, uz * mid, 0, ang, 0));
+    arm.add(at(cyl(.0155, .0155, aT, CF, cf(1, 1), 24), x, 0, z));
+    // 3-phase wires on the arm top
+    const wr = P('wires', [a * q * .3, .55, b * q * .3]), px = -uz, pz = ux, yw = y0 + .0013;
+    [[-.0045, '#ef4444'], [0, '#facc15'], [.0045, '#111827']].forEach(([o, col]) => {
+      wr.add(rod([ux * .02 + px * o, yw, uz * .02 + pz * o], [ux * (L - .006) + px * o, yw, uz * (L - .006) + pz * o], .0011, col, {r: .5}, 6));
+      wr.add(at(sph(.0016, '#d1d5db', {m: .9, r: .3}), ux * .02 + px * o, yw, uz * .02 + pz * o));
+    });
+    const mt = P('motor', [a * q * .75, .45, b * q * .75]);
+    mt.add(at(cyl(.0115, .0115, .006, '#1f2937', {m: .6, r: .4}, 24), x, y0 + .003, z));
+    mt.add(at(cyl(.0102, .0102, .0035, '#b45309', {m: .85, r: .35}, 24), x, y0 + .00425 + .003, z));
+    mt.add(at(cyl(.0135, .0135, .0145, '#aeb6c2', {m: .85, r: .28}, 32), x, .01925, z));
+    mt.add(at(cyl(.0126, .0126, .0012, '#374151', {m: .7, r: .4}, 32), x, .0272, z));
+    for (let k = 0; k < 6; k++) { const th = k * Math.PI / 3; mt.add(at(box(.0026, .0085, .0008, '#0f172a', {m: .3, r: .6}), x + Math.cos(th) * .0136, .0195, z + Math.sin(th) * .0136, 0, Math.PI / 2 - th, 0)); }
+    mt.add(at(cyl(.0028, .0028, .005, '#ef4444', {m: .85, r: .3}, 12), x, .0355, z));
+    addProp(x, .0295, z, .127, 3, '#f97316', i % 2 ? 1 : -1).userData.ex = [a * q * .8, 1.0, b * q * .8];
+  });
+  // ---- FC / ESC / VTX stack (36 x 36 mm boards, 30.5 mm hole pattern)
+  const esc = P('esc', [0, .3, 0]), fc = P('fc', [0, .5, 0]), vtx = P('vtx', [0, .75, 0]);
+  esc.add(at(box(.036, .0016, .036, '#292524', {r: .6, m: .1}), 0, .010, 0));
+  for (let k = 0; k < 4; k++) { const sg = k < 2 ? 1 : -1, sd = k % 2 ? 1 : -1; esc.add(at(box(.007, .0014, .005, '#0a0a0a', {r: .5}), sg * .0075, .0108, sd * .0132), at(box(.007, .0014, .005, '#0a0a0a', {r: .5}), -sg * .0075, .0108, sd * .0132)); }
+  [[.0155, 0], [-.0155, 0], [0, .0155], [0, -.0155]].forEach(([px, pz]) => esc.add(at(box(.006, .0008, .004, '#fbbf24', {m: .9, r: .25}), px, .0111, pz, 0, px ? 0 : Math.PI / 2, 0)));
+  esc.add(at(cyl(.0035, .0035, .007, '#111827', {r: .5}, 12), .008, .0135, -.0125));
+  fc.add(at(box(.036, .0016, .036, '#065f46', {r: .55, m: .1}), 0, .0215, 0));
+  fc.add(at(box(.008, .0016, .008, '#0a0a0a', {r: .4}), .004, .0231, .003), at(box(.003, .0012, .003, '#111827', {r: .4}), -.008, .0230, -.006));
+  fc.add(at(box(.009, .0032, .007, '#9ca3af', {m: .85, r: .3}), -.008, .0230, .0172));
+  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([a, b]) => fc.add(at(box(.004, .0008, .004, '#facc15', {m: .9, r: .25}), a * .0145, .0226, b * .0145)));
+  vtx.add(at(box(.036, .0016, .036, '#581c87', {r: .55, m: .1}), 0, .033, 0));
+  vtx.add(at(box(.016, .0035, .016, '#9ca3af', {m: .9, r: .3}), 0, .0357, 0));
+  for (let k = -2; k <= 2; k++) vtx.add(at(box(.016, .0012, .0008, '#6b7280', {m: .9}), 0, .0381, k * .0028));
+  // ---- FPV camera + cage (tilted 0.5 rad up) -- separate parts, same pivot
+  const piv = () => { const g = new THREE.Group(); g.position.set(0, .0146, .068); g.rotation.x = -.5; return g; };
+  const cam = P('camera', [0, .45, 1.0]), tc = piv(); cam.add(tc);
+  tc.add(box(.019, .019, .017, '#111827', {r: .4, m: .3}));
+  tc.add(at(cyl(.0068, .0068, .002, '#1f2937', {m: .6, r: .4}, 20), 0, 0, .0095, Math.PI / 2));
+  tc.add(at(cyl(.0058, .0058, .006, '#0f172a', {m: .6, r: .3}, 20), 0, 0, .0125, Math.PI / 2));
+  tc.add(at(cyl(.0042, .0042, .001, '#38bdf8', {m: .9, r: .05}, 20), 0, 0, .0158, Math.PI / 2));
+  tc.add(at(box(.017, .017, .0016, '#16a34a', {r: .6}), 0, 0, -.0095));
+  tc.add(rod([0, 0, -.0105], [0, -.0075, -.03], .0007, '#f87171', {r: .5}, 6));
+  const cg = P('cage', [0, -.1, .7]), tg = piv(); cg.add(tg);
+  [-1, 1].forEach(a => tg.add(at(box(.002, .026, .024, CF, cf(1, 1)), a * .0115, 0, -.001)));
+  tg.add(at(box(.025, .002, .006, CF, cf(1, 1)), 0, .012, -.005), at(box(.025, .002, .006, CF, cf(1, 1)), 0, -.012, -.005));
+  tg.add(at(cyl(.0016, .0016, .029, '#9ca3af', {m: .9}, 8), 0, 0, -.007, 0, 0, Math.PI / 2));
+  // ---- action camera on a TPU mount (generic dummy camera, no brand)
+  const mnt = P('mount', [0, .95, .2]);
+  mnt.add(at(box(.04, .008, .034, '#f97316', {r: .7, m: .05}), 0, .049, .027));
+  [-1, 1].forEach(a => mnt.add(at(box(.003, .014, .028, '#f97316', {r: .7, m: .05}), a * .0305, .0575, .03)));
+  const act = P('action', [0, 1.25, .35]);
+  act.add(at(box(.056, .033, .030, '#27272a', {r: .55, m: .3}), 0, .0695, .03));
+  act.add(at(cyl(.0115, .0115, .004, '#111827', {m: .7, r: .35}, 28), .008, .0715, .047, Math.PI / 2));
+  act.add(at(cyl(.0085, .0085, .001, '#1e3a8a', {m: .9, r: .05}, 28), .008, .0715, .0495, Math.PI / 2));
+  act.add(at(box(.016, .012, .0015, '#0b0f19', {r: .2, m: .5}), -.019, .0745, .0455));
+  act.add(at(box(.006, .004, .0015, '#ef4444', {r: .4}), -.019, .0635, .0455));
+  // ---- battery (under the frame) + strap
+  const bat = P('battery', [0, 0, -.55]);
+  bat.add(at(box(.036, .040, .080, '#1d4ed8', {r: .5, m: .1}), 0, -.0216, -.004));
+  bat.add(at(box(.0364, .014, .050, '#facc15', {r: .6}), 0, -.0216, -.004));
+  [.016, -.024].forEach(z => bat.add(at(box(.0392, .0428, .008, '#111827', {r: .8}), 0, -.0216, z)));
+  // ---- rear electronics: RX, capacitor, XT60, antennas
+  const rx = P('rx', [-.9, .8, -.6]);
+  rx.add(at(box(.012, .0016, .020, '#16a34a', {r: .55}), -.015, .0045, -.046), at(box(.006, .0012, .006, '#0a0a0a', {r: .4}), -.015, .0058, -.043), at(box(.003, .004, .003, '#9ca3af', {m: .9, r: .3}), -.015, .0064, -.052));
+  const cap = P('cap', [.9, .8, -.6]);
+  cap.add(at(cyl(.0055, .0055, .016, '#0b0b0f', {r: .5, m: .2}, 20), .014, .0075, -.052, Math.PI / 2));
+  cap.add(at(cyl(.00562, .00562, .008, '#9ca3af', {r: .35, m: .8}, 20), .014, .0075, -.0565, Math.PI / 2));
+  cap.add(rod([.0125, .0075, -.044], [.0125, .0035, -.036], .0006, '#d1d5db', {m: .9}, 6), rod([.0155, .0075, -.044], [.0155, .0035, -.036], .0006, '#d1d5db', {m: .9}, 6));
+  const xt = P('xt60', [0, .6, -.9]);
+  xt.add(at(box(.016, .008, .016, '#facc15', {r: .45, m: .1}), 0, .0105, -.075), at(box(.011, .004, .006, '#a16207', {r: .5}), 0, .0105, -.0665));
+  xt.add(rod([-.003, .0105, -.018], [-.003, .0105, -.067], .0017, '#111827', {r: .5}, 8), rod([.003, .0105, -.018], [.003, .0105, -.067], .0017, '#dc2626', {r: .5}, 8));
+  [-1, 1].forEach(a => {
+    const an = P('rxant', [a * 1.0, .5, -.9]);
+    an.add(rod([a * .015, .0058, -.056], [a * .052, .0, -.098], .0007, '#111827', {r: .6}, 6), rod([a * .052, .0, -.098], [a * .082, -.004, -.13], .0017, '#0b0b0f', {r: .5}, 10));
+  });
+  const va = P('vtxant', [0, .9, -1.0]);
+  va.add(rod([0, .0335, -.016], [0, .038, -.088], .0007, '#111827', {r: .5}, 6), at(cyl(.0014, .0014, .012, '#111827', {r: .5}, 10), 0, .038, -.092), at(cyl(.0058, .0058, .004, '#0b0b0f', {r: .45, m: .2}, 24), 0, .0445, -.092));
+ },
  mq9() { buildFixed({
    bodyCol: '#9ca3af', wingCol: '#a8b0bb', tailCol: '#8b94a1', tipCol: '#dc2626',
    pts: [[.02, -5.5], [.12, -5.2], [.2, -4.4], [.33, -3.2], [.48, -1.8], [.58, -.4], [.62, 1.2], [.62, 2.6], [.56, 3.6], [.44, 4.5]],
